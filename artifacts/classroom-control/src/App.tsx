@@ -113,13 +113,13 @@ export default function App() {
     };
 
     const exec = () => {
-      if (action === 'protect-on' || action === 'protect-off') {
-        const targets = target === 'all'
-          ? ONLINE_PCS
-          : Array.isArray(target)
-          ? target
-          : [target];
+      const targets = target === 'all'
+        ? ONLINE_PCS
+        : Array.isArray(target)
+        ? target
+        : [target];
 
+      if (action === 'protect-on' || action === 'protect-off') {
         setProtectedPCs(prev => {
           const next = new Set(prev);
           targets.forEach(n => {
@@ -130,9 +130,22 @@ export default function App() {
         });
       }
 
+      if (action === 'lock-on' || action === 'lock-off') {
+        setLockedPCs(prev => {
+          const next = new Set(prev);
+          targets.forEach(n => {
+            if (action === 'lock-on') next.add(n);
+            else next.delete(n);
+          });
+          return next;
+        });
+      }
+
       const msgs: Record<string, (t: string) => string> = {
         'protect-on': t => `🛡 Защита включена → ${t}`,
         'protect-off': t => `🔓 Защита отключена → ${t}`,
+        'lock-on': t => `🔒 Экран заблокирован → ${t}`,
+        'lock-off': t => `🔓 Экран разблокирован → ${t}`,
         reboot: t => `🔄 Перезагрузка → ${t}`,
         shutdown: t => `⏻ Выключение → ${t}`,
       };
@@ -176,6 +189,8 @@ export default function App() {
       {page === 'actions' && (
         <ActionsPage
           target={target}
+          protectedPCs={protectedPCs}
+          lockedPCs={lockedPCs}
           onBack={() => navigateTo('list')}
           onAction={handleAction}
         />
