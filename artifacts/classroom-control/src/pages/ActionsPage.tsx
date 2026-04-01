@@ -1,10 +1,12 @@
 import { ONLINE_PCS } from '../data/constants';
-import { ChevronLeft, Monitor, Zap, FolderOpen, ShieldCheck, ShieldAlert, RotateCw, Power } from 'lucide-react';
+import { ChevronLeft, Monitor, Zap, FolderOpen, ShieldCheck, Lock, RotateCw, Power } from 'lucide-react';
 
 type Target = number | number[] | 'all';
 
 interface ActionsPageProps {
   target: Target;
+  protectedPCs: Set<number>;
+  lockedPCs: Set<number>;
   onBack: () => void;
   onAction: (action: string) => void;
 }
@@ -21,14 +23,23 @@ function getTargetMeta(target: Target): { text: string; isAll: boolean } {
   return { text: 'онлайн', isAll: false };
 }
 
+function getTargetPCs(target: Target): number[] {
+  if (target === 'all') return ONLINE_PCS;
+  if (Array.isArray(target)) return target;
+  return [target];
+}
+
 function TargetIcon({ target }: { target: Target }) {
   if (target === 'all' || Array.isArray(target)) return <Zap size={28} fill="currentColor" />;
   return <Monitor size={28} />;
 }
 
-export default function ActionsPage({ target, onBack, onAction }: ActionsPageProps) {
+export default function ActionsPage({ target, protectedPCs, lockedPCs, onBack, onAction }: ActionsPageProps) {
   const label = getTargetLabel(target);
   const meta = getTargetMeta(target);
+  const targetPCs = getTargetPCs(target);
+  const isProtected = targetPCs.length > 0 && targetPCs.every(pc => protectedPCs.has(pc));
+  const isLocked = targetPCs.length > 0 && targetPCs.every(pc => lockedPCs.has(pc));
 
   return (
     <div className="page-wrapper slide-in">
@@ -38,9 +49,6 @@ export default function ActionsPage({ target, onBack, onAction }: ActionsPagePro
         </button>
         <div className="header-info">
           <div className="header-title">Действия</div>
-          <div className="header-sub">
-            <span>{Array.isArray(target) ? `Выбрано: ${target.length}` : label}</span>
-          </div>
         </div>
       </div>
 
@@ -55,7 +63,43 @@ export default function ActionsPage({ target, onBack, onAction }: ActionsPagePro
       </div>
 
       <div className="actions-grid">
-        <div className="action-row fade-up-4">
+        <div className="toggles-row fade-up-2">
+          <div className={`toggle-card toggle-card--protect${isProtected ? ' is-on' : ''}`}>
+            <div className="toggle-card-top">
+              <div className="toggle-card-icon protect">
+                <ShieldCheck size={18} />
+              </div>
+              <span className="toggle-card-label">Защита</span>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={isProtected}
+                onChange={() => onAction(isProtected ? 'protect-off' : 'protect-on')}
+              />
+              <span className={`toggle-slider${isProtected ? ' on-protect' : ''}`} />
+            </label>
+          </div>
+
+          <div className={`toggle-card toggle-card--lock${isLocked ? ' is-on' : ''}`}>
+            <div className="toggle-card-top">
+              <div className="toggle-card-icon lock">
+                <Lock size={18} />
+              </div>
+              <span className="toggle-card-label">Блокировать экран</span>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={isLocked}
+                onChange={() => onAction(isLocked ? 'lock-off' : 'lock-on')}
+              />
+              <span className={`toggle-slider${isLocked ? ' on-lock' : ''}`} />
+            </label>
+          </div>
+        </div>
+
+        <div className="action-row fade-up-3">
           <button className="action-btn launch full-width" onClick={() => onAction('launch')}>
             <div className="action-icon"><FolderOpen size={24} /></div>
             <div className="action-text">
@@ -65,24 +109,7 @@ export default function ActionsPage({ target, onBack, onAction }: ActionsPagePro
           </button>
         </div>
 
-        <div className="action-row cols-2 fade-up-5">
-          <button className="action-btn protect-on" onClick={() => onAction('protect-on')}>
-            <div className="action-icon"><ShieldCheck size={24} /></div>
-            <div className="action-text">
-              <div className="action-title">Вкл. защиту</div>
-              <div className="action-sub">Блокировка</div>
-            </div>
-          </button>
-          <button className="action-btn protect-off" onClick={() => onAction('protect-off')}>
-            <div className="action-icon"><ShieldAlert size={24} /></div>
-            <div className="action-text">
-              <div className="action-title">Выкл. защиту</div>
-              <div className="action-sub">Снять блок</div>
-            </div>
-          </button>
-        </div>
-
-        <div className="action-row cols-2 fade-up-6">
+        <div className="action-row cols-2 fade-up-4">
           <button className="action-btn reboot" onClick={() => onAction('reboot')}>
             <div className="action-icon"><RotateCw size={24} /></div>
             <div className="action-text">
