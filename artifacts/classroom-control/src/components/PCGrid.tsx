@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
-import { ONLINE_PCS, TOTAL_PCS } from '../data/constants';
-import { ShieldCheck } from 'lucide-react';
+import { ONLINE_PCS, TOTAL_PCS, VERSION, getPCIp } from '../data/constants';
+import { ShieldCheck, Lock, ClipboardList, Monitor, Network } from 'lucide-react';
 
 interface PCGridProps {
   protectedPCs: Set<number>;
+  lockedPCs: Set<number>;
+  taskPCs: Set<number>;
   multiMode: boolean;
   selectedPCs: Set<number>;
   onPCClick: (pc: number) => void;
@@ -34,6 +36,8 @@ interface PCButtonProps {
   index: number;
   online: boolean;
   isProtected: boolean;
+  isLocked: boolean;
+  hasTask: boolean;
   multiMode: boolean;
   selected: boolean;
   animClass: string;
@@ -45,6 +49,8 @@ function PCButton({
   index,
   online,
   isProtected,
+  isLocked,
+  hasTask,
   multiMode,
   selected,
   animClass,
@@ -94,6 +100,8 @@ function PCButton({
     .filter(Boolean)
     .join(' ');
 
+  const ip = getPCIp(index);
+
   return (
     <button
       className={classNames}
@@ -108,20 +116,43 @@ function PCButton({
       <div className={`pc-check${selected ? ' checked' : ''}`}>
         {selected && <CheckIcon />}
       </div>
-      {online && isProtected && (
-        <span className="pc-shield">
-          <ShieldCheck size={14} />
+
+      <div className="pc-status-indicators">
+        <span className={`pc-ind${isProtected ? ' active protect' : ''}`} title="Защита">
+          <ShieldCheck size={13} />
         </span>
-      )}
-      {!multiMode && <div className="pc-status-dot" />}
-      <span className="pc-icon">🖥</span>
-      <span className="pc-label">ПК {index}</span>
+        <span className={`pc-ind${isLocked ? ' active lock' : ''}`} title="Блокировка">
+          <Lock size={13} />
+        </span>
+        <span className={`pc-ind${hasTask ? ' active task' : ''}`} title="Задача">
+          <ClipboardList size={13} />
+        </span>
+      </div>
+
+      <div className="pc-divider" />
+
+      <div className="pc-info">
+        <div className="pc-info-row">
+          <Monitor size={12} className="pc-info-icon" />
+          <span className="pc-info-name">ПК {index}</span>
+          {!multiMode && <div className="pc-status-dot" />}
+        </div>
+        <div className="pc-info-row">
+          <Network size={12} className="pc-info-icon muted" />
+          <span className="pc-info-ip">{ip}</span>
+        </div>
+        <div className="pc-info-row">
+          <span className="pc-info-version">{VERSION}</span>
+        </div>
+      </div>
     </button>
   );
 }
 
 export default function PCGrid({
   protectedPCs,
+  lockedPCs,
+  taskPCs,
   multiMode,
   selectedPCs,
   onPCClick,
@@ -143,6 +174,8 @@ export default function PCGrid({
             index={pc}
             online={online}
             isProtected={protectedPCs.has(pc)}
+            isLocked={lockedPCs.has(pc)}
+            hasTask={taskPCs.has(pc)}
             multiMode={multiMode}
             selected={selected}
             animClass={animClass}

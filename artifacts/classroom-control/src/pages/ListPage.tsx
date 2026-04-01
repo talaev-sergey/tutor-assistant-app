@@ -1,10 +1,13 @@
 import PCGrid from '../components/PCGrid';
 import MultiselectBar from '../components/MultiselectBar';
 import { ONLINE_PCS, HOST, VERSION } from '../data/constants';
-import { Server, Zap, ChevronRight } from 'lucide-react';
+import { Server } from 'lucide-react';
+import { ChevronRight, Zap } from 'lucide-react';
 
 interface ListPageProps {
   protectedPCs: Set<number>;
+  lockedPCs: Set<number>;
+  taskPCs: Set<number>;
   multiMode: boolean;
   selectedPCs: Set<number>;
   onPCClick: (pc: number) => void;
@@ -18,6 +21,8 @@ interface ListPageProps {
 
 export default function ListPage({
   protectedPCs,
+  lockedPCs,
+  taskPCs,
   multiMode,
   selectedPCs,
   onPCClick,
@@ -38,10 +43,6 @@ export default function ListPage({
             <span style={{ opacity: 0.5 }}>•</span>
             <span>{VERSION}</span>
           </div>
-        </div>
-        <div className="status-bar">
-          <div className="status-dot" />
-          <span>{ONLINE_PCS.length} онлайн</span>
         </div>
       </div>
 
@@ -67,6 +68,8 @@ export default function ListPage({
 
       <PCGrid
         protectedPCs={protectedPCs}
+        lockedPCs={lockedPCs}
+        taskPCs={taskPCs}
         multiMode={multiMode}
         selectedPCs={selectedPCs}
         onPCClick={onPCClick}

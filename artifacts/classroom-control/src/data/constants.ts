@@ -4,6 +4,10 @@ export const TOTAL_PCS = 13;
 export const HOST = '192.168.1.100';
 export const VERSION = 'v1.0.0';
 
+export function getPCIp(index: number): string {
+  return `192.168.1.${index}`;
+}
+
 export interface Program {
   id: string;
   icon: string;
