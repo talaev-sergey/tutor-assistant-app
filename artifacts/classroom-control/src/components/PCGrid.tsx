@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { ONLINE_PCS, TOTAL_PCS } from '../data/constants';
+import { ShieldCheck } from 'lucide-react';
 
 interface PCGridProps {
   protectedPCs: Set<number>;
@@ -15,8 +16,8 @@ function CheckIcon() {
     <svg
       viewBox="0 0 12 12"
       style={{
-        width: 9,
-        height: 9,
+        width: 12,
+        height: 12,
         fill: 'none',
         stroke: '#fff',
         strokeWidth: 2.5,
@@ -62,7 +63,7 @@ function PCButton({
       didLongPress.current = true;
       setIsHolding(false);
       onLongPress();
-    }, 500);
+    }, 400);
     setIsHolding(true);
   }
 
@@ -107,9 +108,9 @@ function PCButton({
       <div className={`pc-check${selected ? ' checked' : ''}`}>
         {selected && <CheckIcon />}
       </div>
-      {online && (
+      {online && isProtected && (
         <span className="pc-shield">
-          {isProtected ? '🛡' : '🔓'}
+          <ShieldCheck size={14} />
         </span>
       )}
       {!multiMode && <div className="pc-status-dot" />}
@@ -134,7 +135,7 @@ export default function PCGrid({
       {Array.from({ length: TOTAL_PCS }, (_, i) => i + 1).map((pc) => {
         const online = ONLINE_PCS.includes(pc);
         const selected = selectedPCs.has(pc);
-        const animClass = `fade-up-${Math.min(pc, 13)}`;
+        const animClass = `fade-up-${Math.min(pc + 2, 13)}`;
 
         return (
           <PCButton
