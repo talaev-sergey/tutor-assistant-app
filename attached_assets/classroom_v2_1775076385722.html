@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Класс-Контроль</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #0f0f13);
+      --bg2: var(--tg-theme-secondary-bg-color, #1a1a22);
+      --text: var(--tg-theme-text-color, #e8e8f0);
+      --hint: var(--tg-theme-hint-color, #6b6b80);
+      --accent: #5b9cf6;
+      --online: #34c976;
+      --offline-text: #52526a;
+      --danger: #f05a5a;
+      --warn: #f0a854;
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Golos Text', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #app {
+      position: relative;
+    }
+
+    .page {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      min-height: 100vh;
+      padding: 16px;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+
+    .page.active {
+      transform: translateX(0);
+    }
+
+    .page.slide-out {
+      transform: translateX(-30%);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 0 20px;
+    }
+
+    .back-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg2);
+      border: none;
+      color: var(--accent);
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform .15s, background .15s;
+    }
+
+    .back-btn:active {
+      transform: scale(.9);
+      background: #2a2a38;
+    }
+
+    .header-info {
+      flex: 1;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .header-sub {
+      display: flex;
+      justify-content: space-between;
+      justify-self: start;
+      flex-direction: row;
+      font-size: 13px;
+      color: var(--hint);
+      margin-top: 2px;
+    }
+
+    .header-sub span {
+      margin:0px 5px;
+      text-align: center;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg2);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--hint);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--online);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--online);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .5
+      }
+    }
+
+    .status-count {
+      color: var(--online);
+      font-weight: 600;
+    }
+
+    .pc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .pc-btn {
+      background: var(--bg2);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 12px 8px 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      transition: transform .15s, border-color .15s, background .15s;
+      position: relative;
+    }
+
+    .pc-btn.online {
+      border-color: rgba(52, 201, 118, .3);
+    }
+
+    .pc-btn.online:active {
+      transform: scale(.95);
+      background: rgba(52, 201, 118, .08);
+    }
+
+    .pc-btn.offline {
+      cursor: not-allowed;
+      opacity: .5;
+    }
+
+    .pc-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .pc-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .pc-btn.offline .pc-label {
+      color: var(--offline-text);
+    }
+
+    .pc-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      position: absolute;
+      top: 7px;
+      right: 7px;
+    }
+
+    .pc-btn.online .pc-status-dot {
+      background: var(--online);
+    }
+
+    .pc-btn.offline .pc-status-dot {
+      background: var(--offline-text);
+    }
+
+    /* shield badge — пункт 1 */
+    .pc-shield {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      font-size: 11px;
+      line-height: 1;
+      transition: opacity .2s;
+    }
+
+    .pc-grid.multiselect .pc-btn .pc-shield {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* multiselect */
+    .pc-btn.selected {
+      border-color: var(--accent) !important;
+      background: rgba(91, 156, 246, .12) !important;
+    }
+
+    .pc-btn .pc-check {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--hint);
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(.7);
+      transition: opacity .18s, transform .18s, background .15s, border-color .15s;
+    }
+
+    .pc-btn .pc-check svg {
+      width: 9px;
+      height: 9px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+
+    .pc-btn.selected .pc-check {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .pc-btn.selected .pc-check svg {
+      opacity: 1;
+    }
+
+    .pc-grid.multiselect .pc-btn.online .pc-check {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .pc-grid.multiselect .pc-btn .pc-status-dot {
+      display: none;
+    }
+
+    .multiselect-bar {
+      display: none;
+      align-items: center;
+      background: rgba(91, 156, 246, .1);
+      border: 1px solid rgba(91, 156, 246, .28);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      gap: 8px;
+      animation: fadeUp .2s both;
+    }
+
+    .multiselect-bar.visible {
+      display: flex;
+    }
+
+    .ms-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ms-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .ms-btn {
+      background: none;
+      border: 1px solid rgba(91, 156, 246, .3);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-family: 'Golos Text', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s;
+    }
+
+    .ms-btn:active {
+      background: rgba(91, 156, 246, .15);
+    }
+
+    .ms-btn.sel-all {
+      color: var(--hint);
+      border-color: rgba(255, 255, 255, .12);
+    }
+
+    .ms-btn.sel-all:active {
+      background: rgba(255, 255, 255, .06);
+    }
+
+    .ms-btn.cancel {
+      color: var(--hint);
+      border-color: rgba(255, 255, 255, .1);
+    }
+
+    .ms-btn.cancel:active {
+      background: rgba(255, 255, 255, .06);
+    }
+
+    .ms-btn.go {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .ms-btn.go:active {
+      opacity: .85;
+    }
+
+    .ms-btn.go[disabled] {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+
+    @keyframes holdRipple {
+      0% {
+        box-shadow: 0 0 0 0 rgba(91, 156, 246, .5)
+      }
+
+      100% {
+        box-shadow: 0 0 0 10px rgba(91, 156, 246, 0)
+      }
+    }
+
+    .pc-btn.holding {
+      animation: holdRipple .55s ease-out;
+    }
+
+    /* actions page */
+    .target-card {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .target-icon-wrap {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(91, 156, 246, .15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .target-name {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .target-meta {
+      font-size: 13px;
+      color: var(--online);
+      margin-top: 2px;
+    }
+
+    .target-meta.all {
+      color: var(--accent);
+    }
+
+    .actions-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .action-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .action-row.cols-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .action-btn {
+      background: var(--bg2);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Golos Text', sans-serif;
+      color: var(--text);
+      text-align: left;
+      transition: transform .15s, background .15s, border-color .15s;
+    }
+
+    .action-btn:active {
+      transform: scale(.97);
+    }
+
+    .action-btn.launch {
+      border-color: rgba(91, 156, 246, .3);
+    }
+
+    .action-btn.launch:active {
+      background: rgba(91, 156, 246, .08);
+    }
+
+    .action-btn.protect-on {
+      border-color: rgba(52, 201, 118, .3);
+    }
+
+    .action-btn.protect-on:active {
+      background: rgba(52, 201, 118, .08);
+    }
+
+    .action-btn.protect-off {
+      border-color: rgba(240, 168, 84, .3);
+    }
+
+    .action-btn.protect-off:active {
+      background: rgba(240, 168, 84, .08);
+    }
+
+    .action-btn.reboot {
+      border-color: rgba(240, 168, 84, .3);
+    }
+
+    .action-btn.reboot:active {
+      background: rgba(240, 168, 84, .08);
+    }
+
+    .action-btn.shutdown {
+      border-color: rgba(240, 90, 90, .3);
+    }
+
+    .action-btn.shutdown:active {
+      background: rgba(240, 90, 90, .08);
+    }
+
+    .action-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .action-text {
+      flex: 1;
+    }
+
+    .action-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .action-sub {
+      font-size: 12px;
+      color: var(--hint);
+      margin-top: 2px;
+    }
+
+    .action-btn.launch .action-title {
+      color: var(--accent);
+    }
+
+    .action-btn.protect-on .action-title {
+      color: var(--online);
+    }
+
+    .action-btn.protect-off .action-title {
+      color: var(--warn);
+    }
+
+    .action-btn.reboot .action-title {
+      color: var(--warn);
+    }
+
+    .action-btn.shutdown .action-title {
+      color: var(--danger);
+    }
+
+    /* programs page */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg2);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 10px 36px 10px 38px;
+      font-family: 'Golos Text', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .search-input::placeholder {
+      color: var(--hint);
+    }
+
+    .search-input:focus {
+      border-color: rgba(91, 156, 246, .4);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 15px;
+      pointer-events: none;
+      opacity: .5;
+    }
+
+    .search-clear {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--hint);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 2px 4px;
+      display: none;
+      line-height: 1;
+    }
+
+    .search-clear.visible {
+      display: block;
+    }
+
+    .no-results {
+      text-align: center;
+      color: var(--hint);
+      font-size: 14px;
+      padding: 32px 0;
+      display: none;
+    }
+
+    .prog-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 100px;
+    }
+
+    .prog-item {
+      background: var(--bg2);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: transform .12s, background .12s, border-color .12s;
+      user-select: none;
+    }
+
+    .prog-item:active {
+      transform: scale(.98);
+    }
+
+    .prog-item.checked {
+      border-color: rgba(91, 156, 246, .4);
+      background: rgba(91, 156, 246, .06);
+    }
+
+    .prog-icon {
+      font-size: 26px;
+      flex-shrink: 0;
+      line-height: 1;
+      width: 36px;
+      text-align: center;
+    }
+
+    .prog-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .prog-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .prog-desc {
+      font-size: 12px;
+      color: var(--hint);
+      margin-top: 2px;
+    }
+
+    .launch-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-top: 1px solid rgba(255, 255, 255, .06);
+    }
+
+    .launch-bar-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 14px;
+      font-family: 'Golos Text', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s, opacity .15s;
+    }
+
+    .launch-bar-btn:active {
+      transform: scale(.98);
+      opacity: .9;
+    }
+
+    .launch-bar-btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #222230;
+      color: var(--text);
+      border-radius: 24px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), opacity .3s;
+      opacity: 0;
+      z-index: 999;
+      border: 1px solid rgba(255, 255, 255, .07);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .page.active .status-bar {
+      animation: fadeUp .3s .04s both;
+    }
+
+    .page.active .all-btn {
+      animation: fadeUp .3s .06s both;
+    }
+
+    .page.active .target-card {
+      animation: fadeUp .3s .05s both;
+    }
+
+    .page.active .action-btn:nth-child(1) {
+      animation: fadeUp .3s .10s both;
+    }
+
+    .page.active .action-btn:nth-child(2) {
+      animation: fadeUp .3s .15s both;
+    }
+
+    .page.active .action-btn:nth-child(3) {
+      animation: fadeUp .3s .18s both;
+    }
+
+    .page.active .action-btn:nth-child(4) {
+      animation: fadeUp .3s .21s both;
+    }
+
+    .page.active .action-btn:nth-child(5) {
+      animation: fadeUp .3s .24s both;
+    }
+
+    .page.active .pc-btn:nth-child(1) {
+      animation: fadeUp .3s .08s both;
+    }
+
+    .page.active .pc-btn:nth-child(2) {
+      animation: fadeUp .3s .10s both;
+    }
+
+    .page.active .pc-btn:nth-child(3) {
+      animation: fadeUp .3s .12s both;
+    }
+
+    .page.active .pc-btn:nth-child(4) {
+      animation: fadeUp .3s .14s both;
+    }
+
+    .page.active .pc-btn:nth-child(5) {
+      animation: fadeUp .3s .16s both;
+    }
+
+    .page.active .pc-btn:nth-child(6) {
+      animation: fadeUp .3s .18s both;
+    }
+
+    .page.active .pc-btn:nth-child(7) {
+      animation: fadeUp .3s .20s both;
+    }
+
+    .page.active .pc-btn:nth-child(8) {
+      animation: fadeUp .3s .22s both;
+    }
+
+    .page.active .pc-btn:nth-child(9) {
+      animation: fadeUp .3s .24s both;
+    }
+
+    .page.active .pc-btn:nth-child(10) {
+      animation: fadeUp .3s .26s both;
+    }
+
+    .page.active .pc-btn:nth-child(11) {
+      animation: fadeUp .3s .28s both;
+    }
+
+    .page.active .pc-btn:nth-child(12) {
+      animation: fadeUp .3s .30s both;
+    }
+
+    .page.active .pc-btn:nth-child(13) {
+      animation: fadeUp .3s .32s both;
+    }
+
+    .page.active .prog-item:nth-child(1) {
+      animation: fadeUp .25s .05s both;
+    }
+
+    .page.active .prog-item:nth-child(2) {
+      animation: fadeUp .25s .09s both;
+    }
+
+    .page.active .prog-item:nth-child(3) {
+      animation: fadeUp .25s .13s both;
+    }
+
+    .page.active .prog-item:nth-child(4) {
+      animation: fadeUp .25s .17s both;
+    }
+
+    .page.active .prog-item:nth-child(5) {
+      animation: fadeUp .25s .21s both;
+    }
+
+    .page.active .prog-item:nth-child(6) {
+      animation: fadeUp .25s .25s both;
+    }
+
+    .page.active .prog-item:nth-child(7) {
+      animation: fadeUp .25s .29s both;
+    }
+
+    .page.active .prog-item:nth-child(8) {
+      animation: fadeUp .25s .33s both;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- PAGE 1: LIST -->
+    <div class="page active" id="page-list">
+      <div class="header">
+        <div class="header-info">
+          <div class="header-title">Tutor Assistant</div>
+          <div class="header-sub"><span>v1.0.0</span><span>Host: <b>192.168.1.100</b></span></div>
+        </div>
+        <div class="status-bar">
+          <div class="status-dot"></div>
+          <span>Онлайн: <span class="status-count" id="online-count">7</span>
+        </div>
+      </div>
+
+      <div class="multiselect-bar" id="ms-bar">
+        <span class="ms-label" id="ms-label">Выберите ПК</span>
+        <div class="ms-actions">
+          <button class="ms-btn sel-all" id="ms-selall-btn" onclick="toggleSelectAll()">Все</button>
+          <button class="ms-btn cancel" onclick="cancelMultiselect()">Отмена</button>
+          <button class="ms-btn go" id="ms-go-btn" disabled onclick="openActionsMulti()">Действия</button>
+        </div>
+      </div>
+      <div class="pc-grid" id="pc-grid"></div>
+    </div>
+
+    <!-- PAGE 2: ACTIONS -->
+    <div class="page" id="page-actions">
+      <div class="header">
+        <button class="back-btn" onclick="goBack()">&#8592;</button>
+        <div class="header-info">
+          <div class="header-title">Действия</div>
+          <div class="header-sub" id="actions-subtitle">ПК 1</div>
+        </div>
+      </div>
+      <div class="target-card">
+        <div class="target-icon-wrap" id="target-icon">🖥</div>
+        <div>
+          <div class="target-name" id="target-name">ПК 1</div>
+          <div class="target-meta" id="target-meta">онлайн</div>
+        </div>
+      </div>
+      <div class="actions-grid">
+        <div class="action-row">
+          <button class="action-btn launch" onclick="doAction('launch')">
+            <span class="action-icon">📂</span>
+            <div class="action-text">
+              <div class="action-title">Запустить программу</div>
+              <div class="action-sub">Открыть приложение на ПК</div>
+            </div>
+          </button>
+        </div>
+        <div class="action-row cols-2">
+          <button class="action-btn protect-on" onclick="doAction('protect-on')">
+            <span class="action-icon">🛡</span>
+            <div class="action-text">
+              <div class="action-title">Вкл. защиту</div>
+              <div class="action-sub">Включить</div>
+            </div>
+          </button>
+          <button class="action-btn protect-off" onclick="doAction('protect-off')">
+            <span class="action-icon">🔓</span>
+            <div class="action-text">
+              <div class="action-title">Выкл. защиту</div>
+              <div class="action-sub">Отключить</div>
+            </div>
+          </button>
+        </div>
+        <div class="action-row cols-2">
+          <button class="action-btn reboot" onclick="doAction('reboot')">
+            <span class="action-icon">🔄</span>
+            <div class="action-text">
+              <div class="action-title">Перезагрузить</div>
+              <div class="action-sub">Restart</div>
+            </div>
+          </button>
+          <button class="action-btn shutdown" onclick="doAction('shutdown')">
+            <span class="action-icon">&#x23FB;</span>
+            <div class="action-text">
+              <div class="action-title">Выключить</div>
+              <div class="action-sub">Shutdown</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 3: PROGRAMS -->
+    <div class="page" id="page-programs">
+      <div class="header">
+        <button class="back-btn" onclick="goBackToActions()">&#8592;</button>
+        <div class="header-info">
+          <div class="header-title">Список программ</div>
+          <div class="header-sub" id="programs-subtitle">ПК 1</div>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-input" type="text" placeholder="Поиск программы..."
+          oninput="onSearchInput(this.value)">
+        <button class="search-clear" id="search-clear" onclick="clearSearch()">&#x00D7;</button>
+      </div>
+      <div class="prog-list" id="prog-list"></div>
+      <div class="no-results" id="no-results">Ничего не найдено</div>
+      <div class="launch-bar">
+        <button class="launch-bar-btn" id="launch-bar-btn" disabled onclick="launchSelected()">
+          <span id="launch-btn-text">Выберите программу</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#0f0f13'); tg.setBackgroundColor('#0f0f13'); }
+
+    const ONLINE = [1, 2, 4, 6, 7, 10, 12];
+    const PROTECTED = [1, 4, 7, 12];
+    const PROGRAMS = [
+      { id: 'chrome', icon: '🌐', name: 'Google Chrome', desc: 'Браузер' },
+      { id: 'word', icon: '📝', name: 'Microsoft Word', desc: 'Текстовый редактор' },
+      { id: 'excel', icon: '📊', name: 'Microsoft Excel', desc: 'Таблицы' },
+      { id: 'ppt', icon: '📑', name: 'PowerPoint', desc: 'Презентации' },
+      { id: 'paint', icon: '🎨', name: 'Paint', desc: 'Графический редактор' },
+      { id: 'calc', icon: '🧮', name: 'Калькулятор', desc: 'Стандартная утилита' },
+      { id: 'notepad', icon: '🗒', name: 'Блокнот', desc: 'Текстовый файл' },
+      { id: 'scratch', icon: '🐱', name: 'Scratch', desc: 'Визуальное программирование' },
+      { id: 'vscode', icon: '💻', name: 'VS Code', desc: 'Редактор кода' },
+      { id: 'figma', icon: '🎯', name: 'Figma', desc: 'Дизайн в браузере' },
+    ];
+
+    let currentTarget = null;
+    let multiMode = false;
+    let selectedPCs = new Set();
+    let selectedProgs = new Set();
+    let protectedPCs = new Set(PROTECTED);
+
+    // Build PC grid
+    const grid = document.getElementById('pc-grid');
+    for (let i = 1; i <= 13; i++) {
+      const online = ONLINE.includes(i);
+      const btn = document.createElement('button');
+      btn.className = 'pc-btn ' + (online ? 'online' : 'offline');
+      btn.id = 'pc-btn-' + i;
+      btn.dataset.pc = i;
+      const shield = online
+        ? '<span class="pc-shield" id="shield-' + i + '">' + (protectedPCs.has(i) ? '🛡' : '🔓') + '</span>'
+        : '';
+      btn.innerHTML =
+        '<div class="pc-check"><svg viewBox="0 0 12 12"><polyline points="1.5,6 5,9.5 10.5,2.5"/></svg></div>' +
+        shield +
+        '<div class="pc-status-dot"></div>' +
+        '<span class="pc-icon">🖥</span>' +
+        '<span class="pc-label">ПК ' + i + '</span>';
+      if (online) setupPCBtn(btn, i);
+      grid.appendChild(btn);
+    }
+
+    function setupPCBtn(btn, i) {
+      let holdTimer = null;
+      const startHold = () => {
+        holdTimer = setTimeout(() => { holdTimer = null; if (!multiMode) enterMultiselect(i, btn); }, 500);
+        btn.classList.add('holding');
+      };
+      const cancelHold = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } btn.classList.remove('holding'); };
+      btn.addEventListener('mousedown', startHold);
+      btn.addEventListener('touchstart', startHold, { passive: true });
+      btn.addEventListener('mouseup', cancelHold);
+      btn.addEventListener('touchend', cancelHold);
+      btn.addEventListener('mouseleave', cancelHold);
+      btn.addEventListener('touchcancel', cancelHold);
+      btn.addEventListener('click', () => { if (multiMode) togglePCSelect(i, btn); else openActions(i); });
+    }
+
+    function refreshShield(n) {
+      const el = document.getElementById('shield-' + n);
+      if (el) el.textContent = protectedPCs.has(n) ? '🛡' : '🔓';
+    }
+
+    // Multiselect
+    function enterMultiselect(i, btn) {
+      multiMode = true; selectedPCs.clear();
+      grid.classList.add('multiselect');
+      document.getElementById('ms-bar').classList.add('visible');
+      if (tg) tg.HapticFeedback.impactOccurred('medium');
+      togglePCSelect(i, btn);
+    }
+
+    function togglePCSelect(i, btn) {
+      if (selectedPCs.has(i)) { selectedPCs.delete(i); btn.classList.remove('selected'); }
+      else { selectedPCs.add(i); btn.classList.add('selected'); }
+      if (tg) tg.HapticFeedback.selectionChanged();
+      updateMsBar();
+    }
+
+    function updateMsBar() {
+      const n = selectedPCs.size;
+      const allSel = n === ONLINE.length;
+      document.getElementById('ms-label').textContent = n === 0 ? 'Выберите ПК' : ('Выбрано: ' + n + ' из ' + ONLINE.length);
+      document.getElementById('ms-go-btn').disabled = n === 0;
+      document.getElementById('ms-selall-btn').textContent = allSel ? 'Снять' : 'Все';
+    }
+
+    function toggleSelectAll() {
+      const allSel = selectedPCs.size === ONLINE.length;
+      if (allSel) {
+        selectedPCs.clear();
+        grid.querySelectorAll('.pc-btn.selected').forEach(b => b.classList.remove('selected'));
+      } else {
+        ONLINE.forEach(i => { selectedPCs.add(i); const b = document.getElementById('pc-btn-' + i); if (b) b.classList.add('selected'); });
+      }
+      if (tg) tg.HapticFeedback.impactOccurred('light');
+      updateMsBar();
+    }
+
+    function cancelMultiselect() {
+      multiMode = false; selectedPCs.clear();
+      grid.classList.remove('multiselect');
+      document.getElementById('ms-bar').classList.remove('visible');
+      grid.querySelectorAll('.pc-btn.selected').forEach(b => b.classList.remove('selected'));
+    }
+
+    function openActionsMulti() {
+      const arr = [...selectedPCs].sort((a, b) => a - b);
+      currentTarget = arr;
+      const label = arr.length === 1 ? 'ПК ' + arr[0] : 'ПК ' + arr.join(', ');
+      document.getElementById('target-name').textContent = label;
+      document.getElementById('target-meta').textContent = arr.length + ' компьютеров';
+      document.getElementById('target-meta').className = 'target-meta all';
+      document.getElementById('target-icon').textContent = '🖥';
+      document.getElementById('actions-subtitle').textContent = 'Выбрано: ' + arr.length;
+      cancelMultiselect();
+      navigateTo('page-list', 'page-actions');
+      if (tg) tg.BackButton.show();
+    }
+
+    // Navigation
+    function navigateTo(fromId, toId) {
+      const from = document.getElementById(fromId);
+      const to = document.getElementById(toId);
+      from.classList.add('slide-out');
+      setTimeout(() => { from.classList.remove('active', 'slide-out'); to.classList.add('active'); }, 280);
+    }
+
+    function openActions(target) {
+      currentTarget = target;
+      const isAll = target === 'all';
+      document.getElementById('target-name').textContent = isAll ? 'Все онлайн-ПК' : 'ПК ' + target;
+      document.getElementById('target-meta').textContent = isAll ? (ONLINE.length + ' компьютеров') : 'онлайн';
+      document.getElementById('target-meta').className = 'target-meta' + (isAll ? ' all' : '');
+      document.getElementById('target-icon').textContent = isAll ? '⚡' : '🖥';
+      document.getElementById('actions-subtitle').textContent = isAll ? 'Группа' : 'ПК ' + target;
+      cancelMultiselect();
+      navigateTo('page-list', 'page-actions');
+      if (tg) tg.BackButton.show();
+    }
+
+    function goBack() {
+      document.getElementById('page-actions').classList.remove('active');
+      document.getElementById('page-list').classList.add('active');
+      if (tg) tg.BackButton.hide();
+    }
+
+    function openPrograms() {
+      const sub = Array.isArray(currentTarget) ? ('ПК ' + currentTarget.join(', ')) : currentTarget === 'all' ? 'Все онлайн-ПК' : ('ПК ' + currentTarget);
+      document.getElementById('programs-subtitle').textContent = sub;
+      selectedProgs.clear(); clearSearch(); buildProgList('');
+      navigateTo('page-actions', 'page-programs');
+    }
+
+    function goBackToActions() {
+      document.getElementById('page-programs').classList.remove('active');
+      document.getElementById('page-actions').classList.add('active');
+    }
+
+    if (tg) tg.BackButton.onClick(() => {
+      if (document.getElementById('page-programs').classList.contains('active')) goBackToActions();
+      else if (document.getElementById('page-actions').classList.contains('active')) goBack();
+    });
+
+    // Programs + search
+    function buildProgList(query) {
+      const list = document.getElementById('prog-list');
+      const noRes = document.getElementById('no-results');
+      const q = query.trim().toLowerCase();
+      const filtered = q ? PROGRAMS.filter(p => p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) : PROGRAMS;
+      list.innerHTML = '';
+      noRes.style.display = filtered.length === 0 ? 'block' : 'none';
+      filtered.forEach(p => {
+        const checked = selectedProgs.has(p.id);
+        const el = document.createElement('div');
+        el.className = 'prog-item' + (checked ? ' checked' : '');
+        el.dataset.id = p.id;
+        const nameHtml = q ? hlMatch(p.name, q) : p.name;
+        const cbBg = checked ? 'var(--accent)' : 'transparent';
+        const cbBorder = checked ? 'var(--accent)' : 'var(--hint)';
+        const cbOp = checked ? '1' : '0';
+        el.innerHTML =
+          '<span class="prog-icon">' + p.icon + '</span>' +
+          '<div class="prog-info"><div class="prog-name">' + nameHtml + '</div><div class="prog-desc">' + p.desc + '</div></div>' +
+          '<svg viewBox="0 0 12 12" style="width:22px;height:22px;flex-shrink:0;padding:3px;border-radius:6px;border:2px solid ' + cbBorder + ';background:' + cbBg + ';box-sizing:border-box;transition:background .15s,border-color .15s">' +
+          '<polyline points="1.5,6 5,9.5 10.5,2.5" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="' + cbOp + '" style="transition:opacity .12s"/></svg>';
+        el.onclick = () => toggleProgram(p.id, el);
+        list.appendChild(el);
+      });
+    }
+
+    function hlMatch(text, q) {
+      const idx = text.toLowerCase().indexOf(q);
+      if (idx === -1) return text;
+      return text.slice(0, idx) + '<span style="color:var(--accent);font-weight:700">' + text.slice(idx, idx + q.length) + '</span>' + text.slice(idx + q.length);
+    }
+
+    function onSearchInput(val) {
+      document.getElementById('search-clear').classList.toggle('visible', val.length > 0);
+      buildProgList(val);
+    }
+
+    function clearSearch() {
+      const inp = document.getElementById('search-input');
+      inp.value = '';
+      document.getElementById('search-clear').classList.remove('visible');
+      buildProgList('');
+    }
+
+    function toggleProgram(id, el) {
+      if (selectedProgs.has(id)) { selectedProgs.delete(id); el.classList.remove('checked'); }
+      else { selectedProgs.add(id); el.classList.add('checked'); }
+      const svg = el.querySelector('svg');
+      if (svg) {
+        const on = selectedProgs.has(id);
+        svg.style.background = on ? 'var(--accent)' : 'transparent';
+        svg.style.borderColor = on ? 'var(--accent)' : 'var(--hint)';
+        svg.querySelector('polyline').setAttribute('opacity', on ? '1' : '0');
+      }
+      updateLaunchBtn();
+      if (tg) tg.HapticFeedback.selectionChanged();
+    }
+
+    function updateLaunchBtn() {
+      const n = selectedProgs.size;
+      document.getElementById('launch-bar-btn').disabled = n === 0;
+      document.getElementById('launch-btn-text').textContent = n === 0 ? 'Выберите программу' : ('Запустить (' + n + ')');
+    }
+
+    function launchSelected() {
+      const names = PROGRAMS.filter(p => selectedProgs.has(p.id)).map(p => p.name).join(', ');
+      showToast('📂 Запущено: ' + names);
+      if (tg) tg.HapticFeedback.impactOccurred('medium');
+    }
+
+    // Actions
+    function doAction(action) {
+      if (action === 'launch') { openPrograms(); return; }
+      const targetName = currentTarget === 'all'
+        ? 'все онлайн (' + ONLINE.length + ')'
+        : Array.isArray(currentTarget) ? 'ПК ' + currentTarget.join(', ') : 'ПК ' + currentTarget;
+
+      const confirms = { reboot: 'Перезагрузить?', shutdown: 'Выключить?', 'protect-off': 'Отключить защиту?' };
+      const exec = () => {
+        if (action === 'protect-on' || action === 'protect-off') {
+          const targets = currentTarget === 'all' ? ONLINE : Array.isArray(currentTarget) ? currentTarget : [currentTarget];
+          targets.forEach(n => { if (action === 'protect-on') protectedPCs.add(n); else protectedPCs.delete(n); refreshShield(n); });
+        }
+        const msgs = { 'protect-on': t => '🛡 Защита включена → ' + t, 'protect-off': t => '🔓 Защита отключена → ' + t, reboot: t => '🔄 Перезагрузка → ' + t, shutdown: t => '⏻ Выключение → ' + t };
+        showToast(msgs[action](targetName));
+        if (tg) tg.HapticFeedback.impactOccurred('medium');
+      };
+
+      if (confirms[action]) {
+        if (tg) tg.showConfirm(confirms[action] + '\n' + targetName, ok => { if (ok) exec(); });
+        else if (confirm(confirms[action] + ' ' + targetName)) exec();
+      } else exec();
+    }
+
+    let toastTimer;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+  </script>
+</body>
+
+</html>
