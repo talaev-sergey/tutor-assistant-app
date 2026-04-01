@@ -1,6 +1,7 @@
 import PCGrid from '../components/PCGrid';
 import MultiselectBar from '../components/MultiselectBar';
 import { ONLINE_PCS, HOST, VERSION } from '../data/constants';
+import { Server, Zap, ChevronRight } from 'lucide-react';
 
 interface ListPageProps {
   protectedPCs: Set<number>;
@@ -28,20 +29,19 @@ export default function ListPage({
   onAllClick,
 }: ListPageProps) {
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper fade-up-1">
       <div className="header">
         <div className="header-info">
-          <div className="header-title">Tutor Assistant</div>
+          <div className="header-title">Класс-Контроль</div>
           <div className="header-sub">
+            <span><Server size={14} /> {HOST}</span>
+            <span style={{ opacity: 0.5 }}>•</span>
             <span>{VERSION}</span>
-            <span>Host: <b>{HOST}</b></span>
           </div>
         </div>
-        <div className="status-bar" style={{ margin: 0 }}>
+        <div className="status-bar">
           <div className="status-dot" />
-          <span>
-            Онлайн: <span className="status-count">{ONLINE_PCS.length}</span>
-          </span>
+          <span>{ONLINE_PCS.length} онлайн</span>
         </div>
       </div>
 
@@ -55,12 +55,14 @@ export default function ListPage({
       )}
 
       <button className="all-btn fade-up-2" onClick={onAllClick}>
-        <span className="all-btn-icon">⚡</span>
+        <div className="all-btn-icon">
+          <Zap size={24} fill="currentColor" />
+        </div>
         <div className="all-btn-text">
           <div className="all-btn-title">Все онлайн-ПК</div>
-          <div className="all-btn-sub">{ONLINE_PCS.length} компьютеров</div>
+          <div className="all-btn-sub">Выбрать {ONLINE_PCS.length} компьютеров</div>
         </div>
-        <span className="all-btn-arrow">›</span>
+        <ChevronRight className="all-btn-arrow" size={20} />
       </button>
 
       <PCGrid
