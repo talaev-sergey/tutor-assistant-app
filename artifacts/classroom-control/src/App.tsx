@@ -182,6 +182,7 @@ export default function App() {
           onSelectAll={handleSelectAll}
           onCancelMulti={handleCancelMulti}
           onGoMulti={handleGoMulti}
+          onAllClick={() => openActions('all')}
         />
       )}
 
