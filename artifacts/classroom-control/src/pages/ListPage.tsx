@@ -59,7 +59,6 @@ export default function ListPage({
           <Zap size={24} fill="currentColor" />
         </div>
         <div className="all-btn-text">
-          <div className="all-btn-title">Все онлайн-ПК</div>
           <div className="all-btn-sub">Выбрать {ONLINE_PCS.length} компьютеров</div>
         </div>
         <ChevronRight className="all-btn-arrow" size={20} />
