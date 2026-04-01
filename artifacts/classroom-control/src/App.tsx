@@ -25,6 +25,8 @@ export default function App() {
   const [multiMode, setMultiMode] = useState(false);
   const [selectedPCs, setSelectedPCs] = useState<Set<number>>(new Set());
   const [protectedPCs, setProtectedPCs] = useState<Set<number>>(new Set(PROTECTED_PCS));
+  const [lockedPCs, setLockedPCs] = useState<Set<number>>(new Set<number>());
+  const [taskPCs, setTaskPCs] = useState<Set<number>>(new Set<number>());
 
   useEffect(() => {
     if (tg) {
@@ -157,6 +159,8 @@ export default function App() {
       {page === 'list' && (
         <ListPage
           protectedPCs={protectedPCs}
+          lockedPCs={lockedPCs}
+          taskPCs={taskPCs}
           multiMode={multiMode}
           selectedPCs={selectedPCs}
           onPCClick={handlePCClick}
