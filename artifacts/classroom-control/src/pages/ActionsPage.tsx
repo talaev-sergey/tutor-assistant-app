@@ -29,9 +29,9 @@ function getTargetPCs(target: Target): number[] {
   return [target];
 }
 
-function TargetIcon({ target }: { target: Target }) {
-  if (target === 'all' || Array.isArray(target)) return <Zap size={28} fill="currentColor" />;
-  return <Monitor size={28} />;
+function TargetIcon({ target, size = 18 }: { target: Target; size?: number }) {
+  if (target === 'all' || Array.isArray(target)) return <Zap size={size} fill="currentColor" />;
+  return <Monitor size={size} />;
 }
 
 export default function ActionsPage({ target, protectedPCs, lockedPCs, onBack, onAction }: ActionsPageProps) {
@@ -50,15 +50,14 @@ export default function ActionsPage({ target, protectedPCs, lockedPCs, onBack, o
         <div className="header-info">
           <div className="header-title">Действия</div>
         </div>
-      </div>
-
-      <div className="target-card fade-up-1">
-        <div className="target-icon-wrap">
-          <TargetIcon target={target} />
-        </div>
-        <div>
-          <div className="target-name">{label}</div>
-          <div className={`target-meta${meta.isAll ? ' all' : ''}`}>{meta.text}</div>
+        <div className="header-target fade-up-2">
+          <div className="header-target-icon">
+            <TargetIcon target={target} />
+          </div>
+          <div className="header-target-text">
+            <div className="header-target-name">{label}</div>
+            <div className={`header-target-meta${meta.isAll ? ' all' : ''}`}>{meta.text}</div>
+          </div>
         </div>
       </div>
 
