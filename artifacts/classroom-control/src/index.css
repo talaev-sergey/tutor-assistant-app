@@ -197,6 +197,31 @@ body {
   pointer-events: none;
 }
 .all-btn:active { transform: scale(0.98); border-color: rgba(91, 156, 246, 0.5); }
+/* Compact header button */
+.header-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(91, 156, 246, 0.18) 0%, rgba(91, 156, 246, 0.08) 100%);
+  border: 1px solid rgba(91, 156, 246, 0.3);
+  border-radius: 20px;
+  padding: 8px 14px;
+  color: var(--accent);
+  font-family: 'Golos Text', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.header-all-btn:active {
+  transform: scale(0.94);
+  background: rgba(91, 156, 246, 0.25);
+}
+
+/* Legacy full-width button (kept for CSS class compat) */
 .all-btn-icon {
   width: 48px;
   height: 48px;

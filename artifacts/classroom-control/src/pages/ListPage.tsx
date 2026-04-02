@@ -1,7 +1,7 @@
 import PCGrid from '../components/PCGrid';
 import MultiselectBar from '../components/MultiselectBar';
 import { ONLINE_PCS, HOST, VERSION } from '../data/constants';
-import { Server, Zap, ChevronRight } from 'lucide-react';
+import { Server, Zap } from 'lucide-react';
 
 interface ListPageProps {
   protectedPCs: Set<number>;
@@ -43,6 +43,10 @@ export default function ListPage({
             <span>{VERSION}</span>
           </div>
         </div>
+        <button className="header-all-btn fade-up-2" onClick={onAllClick}>
+          <Zap size={14} fill="currentColor" />
+          <span>{ONLINE_PCS.length} ПК</span>
+        </button>
       </div>
 
       {multiMode && (
@@ -53,16 +57,6 @@ export default function ListPage({
           onGo={onGoMulti}
         />
       )}
-
-      <button className="all-btn fade-up-2" onClick={onAllClick}>
-        <div className="all-btn-icon">
-          <Zap size={24} fill="currentColor" />
-        </div>
-        <div className="all-btn-text">
-          <div className="all-btn-sub">Выбрать {ONLINE_PCS.length} компьютеров</div>
-        </div>
-        <ChevronRight className="all-btn-arrow" size={20} />
-      </button>
 
       <PCGrid
         protectedPCs={protectedPCs}
