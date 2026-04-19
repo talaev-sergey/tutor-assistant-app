@@ -1060,7 +1060,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main, dev]
+    branches: [master, dev]
 
 jobs:
   deploy:
@@ -1069,7 +1069,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check deploy window (prod only)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         run: |
           HOUR=$(TZ=Europe/Moscow date +%H)
           if [ $HOUR -ge 8 ] && [ $HOUR -lt 16 ]; then
@@ -1093,8 +1093,8 @@ jobs:
 #!/bin/bash
 set -e
 
-BRANCH=${1:-main}
-ENV=$([ "$BRANCH" = "main" ] && echo "prod" || echo "dev")
+BRANCH=${1:-master}
+ENV=$([ "$BRANCH" = "master" ] && echo "prod" || echo "dev")
 DIR=$([ "$ENV" = "prod" ] && echo "/opt/classroom" || echo "/opt/classroom-dev")
 SERVICE="classroom-backend$([ "$ENV" = "dev" ] && echo "-dev")"
 HEALTH_URL="https://$([ "$ENV" = "prod" ] \
@@ -1319,7 +1319,7 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [ ] Mass commands to group / all
 - [ ] Program launch + AllowedProgram API + DB-synced paths
 - [ ] Telegram bot: /status, /add_teacher, /revoke_token
-- [ ] GitHub Actions CI/CD (main → prod, dev → dev)
+- [ ] GitHub Actions CI/CD (master → prod, dev → dev)
 - [ ] Agent self-update (ClassroomUpdater + Ed25519 signing)
 - [ ] Remote log upload (`upload_logs`)
 - [ ] Telegram admin alerts

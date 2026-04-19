@@ -28,6 +28,6 @@ docs/       Architecture docs
 | | prod | dev |
 |---|---|---|
 | URL | `266602.fornex.cloud` | `dev.266602.fornex.cloud` |
-| Branch | `main` | `dev` |
+| Branch | `master` | `dev` |
 
-> Do not merge to `main` during school hours (08:00–16:00 MSK).
+> Do not merge to `master` during school hours (08:00–16:00 MSK).
