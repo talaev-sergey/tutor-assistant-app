@@ -45,5 +45,19 @@ Thumbs.db
 .github/instructions/nx.instructions.md
 
 # Replit
+.replit
+.replitignore
+replit.md
+.replit-artifact/
+attached_assets/
 .cache/
 .local/
+AGENTS.md
+
+# Python / uv (local tooling)
+.venv/
+__pycache__/
+
+# Tool outputs
+graphify-out/
+.knowledge/
