@@ -1,0 +1,35 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master, dev]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force deploy during school hours"
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy window (prod only)
+        if: github.ref == 'refs/heads/master' && github.event.inputs.force != 'true'
+        run: |
+          HOUR=$(TZ=Europe/Moscow date +%H)
+          if [ "$HOUR" -ge 8 ] && [ "$HOUR" -lt 16 ]; then
+            echo "::error::Deploy blocked 08:00–16:00 MSK. Use workflow_dispatch with force=true for hotfixes."
+            exit 1
+          fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: /opt/classroom/deploy/scripts/deploy.sh ${{ github.ref_name }}

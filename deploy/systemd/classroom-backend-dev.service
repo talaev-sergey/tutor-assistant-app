@@ -1,0 +1,15 @@
+[Unit]
+Description=Classroom Control Backend (dev)
+After=network.target
+
+[Service]
+Type=simple
+User=classroom
+WorkingDirectory=/opt/classroom-dev/backend
+ExecStart=/opt/classroom-dev/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8081
+Restart=always
+RestartSec=5
+EnvironmentFile=/opt/classroom-dev/backend/.env
+
+[Install]
+WantedBy=multi-user.target
