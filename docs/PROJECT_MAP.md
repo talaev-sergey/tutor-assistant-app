@@ -1,7 +1,7 @@
 # PROJECT MAP — Classroom Control
 
 > Source of truth for all development. Update when architecture changes.  
-> Last updated: 2026-04-19
+> Last updated: 2026-04-22
 
 ---
 
@@ -431,40 +431,35 @@ classroom-control/               ← repo root
 │   │   ├── test_api.py
 │   │   ├── test_ws.py
 │   │   └── test_auth.py
-│   ├── requirements.txt
-│   └── requirements-dev.txt
+│   └── pyproject.toml       ← uv managed (fastapi, sqlmodel, alembic, bcrypt, packaging)
 │
 ├── agent/                       ← C# .NET 8 solution
 │   ├── ClassroomAgent.sln
-│   ├── ClassroomAgent/          ← main Windows Service
+│   ├── ClassroomAgent/          ← main Windows Service ✅
 │   │   ├── Program.cs           ← entry point, WindowsService host
 │   │   ├── Worker.cs            ← BackgroundService, main loop
-│   │   ├── WebSocketClient.cs   ← reconnect loop, message pump
-│   │   ├── MessageHandler.cs    ← incoming command dispatcher
+│   │   ├── WebSocketClient.cs   ← reconnect loop, message routing
+│   │   ├── MessageDispatcher.cs ← command execution + idempotency cache
+│   │   ├── UpdateManager.cs     ← download, SHA256 verify, launch updater
+│   │   ├── IdempotencyCache.cs  ← LRU cache (1000 command_ids)
 │   │   ├── Commands/
-│   │   │   ├── ICommand.cs
-│   │   │   ├── LockCommand.cs
-│   │   │   ├── ProtectCommand.cs
-│   │   │   ├── LaunchCommand.cs
-│   │   │   ├── RebootCommand.cs
-│   │   │   └── LogUploadCommand.cs
+│   │   │   └── LaunchCommand.cs ← allowlist-only program launch
 │   │   ├── Protection/
 │   │   │   ├── ScreenLocker.cs       ← P/Invoke LockWorkStation
-│   │   │   ├── TaskManagerBlocker.cs ← registry HKCU
-│   │   │   └── ProcessWatchdog.cs
+│   │   │   └── TaskManagerBlocker.cs ← registry HKCU DisableTaskMgr
 │   │   ├── Security/
-│   │   │   ├── TokenStorage.cs       ← DPAPI token storage
-│   │   │   └── SignatureVerifier.cs  ← Ed25519 signature verification (BouncyCastle)
-│   │   ├── Update/
-│   │   │   └── UpdateManager.cs      ← download, verify, launch updater
-│   │   ├── Logging/
-│   │   │   └── LogCollector.cs       ← read log files, gzip
+│   │   │   └── TokenStorage.cs       ← DPAPI LocalMachine-bound storage
 │   │   └── ClassroomAgent.csproj
-│   ├── ClassroomUpdater/        ← standalone updater.exe
-│   │   ├── Program.cs           ← args: old_path, new_path, service_pid
-│   │   ├── Updater.cs           ← wait, backup, copy, start, rollback
+│   ├── ClassroomUpdater/        ← standalone updater.exe ✅
+│   │   ├── Program.cs           ← args: --service-pid --new-path --service-name
+│   │   ├── Updater.cs           ← wait PID → backup → copy → start → 30s verify → rollback
 │   │   └── ClassroomUpdater.csproj
-│   └── publish.ps1              ← build + sign both binaries
+│   ├── ClassroomInstaller/      ← WinForms GUI installer ✅
+│   │   ├── SetupForm.cs         ← PcName + BackendUrl + Token fields, UAC elevated
+│   │   ├── Program.cs
+│   │   ├── app.manifest         ← requireAdministrator
+│   │   └── ClassroomInstaller.csproj
+│   └── publish.ps1              ← builds all 3 → release/ directory
 │
 ├── webapp/                      ← ready UI (renamed from artifacts/classroom-control)
 │   ├── src/
@@ -480,11 +475,10 @@ classroom-control/               ← repo root
 │   │   ├── classroom-prod.conf
 │   │   └── classroom-dev.conf
 │   └── scripts/
-│       ├── deploy.sh              ← manual deploy (works from CI and locally)
-│       ├── setup-vps.sh           ← one-time VPS provisioning
-│       ├── release-agent.sh       ← build + sign + upload agent to VPS
-│       ├── backup-db.sh           ← SQLite backup before migrations
-│       └── install-agent.ps1      ← first-time agent install on Windows
+│       ├── deploy.sh              ← deploy from CI or manually (git pull+migrate+restart+healthcheck)
+│       ├── backup-db.sh           ← SQLite backup (keeps last 10)
+│       ├── update_host.sh         ← update backend on Linux host
+│       └── update_host.ps1        ← update backend on Windows host
 │
 ├── .github/
 │   └── workflows/
@@ -1299,19 +1293,21 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 
 ### MVP — one room, manual deploy
 
-- [ ] Repo structure, `.env`, systemd unit, nginx config
-- [ ] Backend: FastAPI + SQLModel + Alembic, models PC/Command/Token/User
-- [ ] WebSocket manager (connect, disconnect, heartbeat)
-- [ ] Commands: lock/unlock, protect_on/off
-- [ ] API: GET /pcs, POST /commands, GET /commands/{id}, POST /tokens, GET /healthz
-- [ ] Middleware: initData validation
-- [ ] Webapp: connect to real API (remove hardcoded data), setBaseUrl, setAuthTokenGetter
-- [ ] Agent C#: Windows Service, WebSocket reconnect, lock/unlock, protect, allowlist sync
-- [ ] Manual deploy via `deploy.sh`
-- [ ] Logging: Event Log + local file on agent
-- *Self-update: NO (protocol field agent_version: YES, mechanism: NO)*
-- *GitHub Actions: NO*
-- *Groups: NO (single room)*
+- [x] Repo structure, `.env`, systemd unit, nginx config
+- [x] Backend: FastAPI + SQLModel + Alembic, models PC/Command/Token/User/AllowedProgram/AgentRelease
+- [x] WebSocket manager (connect, disconnect, heartbeat)
+- [x] Commands: lock/unlock, protect_on/off, launch, reboot, shutdown, ping
+- [x] API: GET /pcs, POST /commands, GET /commands/{id}, POST /tokens, DELETE /tokens/{id}, GET /programs, GET /groups, GET /healthz
+- [x] Middleware: initData validation (HMAC-SHA256)
+- [x] Agent C#: Windows Service, WebSocket reconnect (exp backoff), lock/unlock, protect, allowlist sync, idempotency cache
+- [x] Agent self-update: UpdateManager + ClassroomUpdater (SHA256 verify, backup, rollback)
+- [x] GUI installer: ClassroomSetup.exe (WinForms, UAC elevated)
+- [x] Manual deploy via `deploy.sh` + `update_host.sh`
+- [x] Logging: Serilog file + Windows Event Log on agent
+- [x] GitHub Actions CI/CD (deploy window block 08:00–16:00 MSK)
+- [ ] **Webapp: connect to real API** (remove hardcoded data, setBaseUrl, setAuthTokenGetter)
+- [ ] Telegram bot: /start, /status, /add_teacher
+- *Groups: NO (single room for MVP)*
 
 ### v1 — full school, CI/CD
 
