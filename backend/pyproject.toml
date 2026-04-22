@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings>=2.3",
     "bcrypt>=4.1",
     "python-multipart>=0.0.9",
+    "packaging>=24.0",
 ]
 
 [project.optional-dependencies]

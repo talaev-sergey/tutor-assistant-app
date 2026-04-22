@@ -32,6 +32,7 @@ try
     builder.Services.AddSingleton<TokenStorage>();
     builder.Services.AddSingleton<IdempotencyCache>();
     builder.Services.AddSingleton<MessageDispatcher>();
+    builder.Services.AddSingleton<UpdateManager>();
     builder.Services.AddHostedService<Worker>();
 
     builder.Logging.ClearProviders();

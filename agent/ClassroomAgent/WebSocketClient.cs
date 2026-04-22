@@ -10,6 +10,7 @@ namespace ClassroomAgent;
 public class WebSocketClient(
     AgentConfig config,
     MessageDispatcher dispatcher,
+    UpdateManager updateManager,
     ILogger logger)
 {
     private const int HeartbeatIntervalSec = 15;
@@ -138,22 +139,32 @@ public class WebSocketClient(
             } while (!result.EndOfMessage);
 
             var json = sb.ToString();
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var response = await dispatcher.HandleAsync(json, _allowedPrograms, ct);
-                    if (response != null)
-                        await SendJsonAsync(ws, response, ct);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError("Handle error: {Message}", ex.Message);
-                }
-            }, ct);
-
             var node = JsonNode.Parse(json);
             var type = node?["type"]?.GetValue<string>();
+
+            if (type == "update_available")
+            {
+                _ = Task.Run(() => updateManager.HandleUpdateAvailableAsync(node!, ct), ct);
+                continue;
+            }
+
+            if (type == "command")
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var response = await dispatcher.HandleAsync(json, _allowedPrograms, ct);
+                        if (response != null)
+                            await SendJsonAsync(ws, response, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError("Handle error: {Message}", ex.Message);
+                    }
+                }, ct);
+                continue;
+            }
 
             if (type == "register_ack")
             {

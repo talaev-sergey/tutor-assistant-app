@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from ..models import PC, Token, Command, CommandResult, AllowedProgram
 from ..services.token_service import verify_token
+from ..services.update_service import build_update_message
 from .manager import manager
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ async def handle_websocket(websocket: WebSocket, session: Session):
             if msg_type == "register":
                 pc_id = await _handle_register(websocket, session, msg, token_record)
             elif msg_type == "heartbeat":
-                await _handle_heartbeat(session, msg)
+                await _handle_heartbeat(session, msg, websocket)
             elif msg_type == "command_result":
                 await _handle_command_result(session, msg)
             elif msg_type == "log_upload":
@@ -181,7 +182,7 @@ def _resolve_command_targets(session: Session, command: Command) -> list[int]:
     return []
 
 
-async def _handle_heartbeat(session: Session, msg: dict):
+async def _handle_heartbeat(session: Session, msg: dict, websocket=None):
     pc_id = msg.get("pc_id")
     if not pc_id:
         return
@@ -197,6 +198,10 @@ async def _handle_heartbeat(session: Session, msg: dict):
     pc.last_seen = datetime.utcnow()
     session.add(pc)
     session.commit()
+
+    update_msg = build_update_message(session, pc)
+    if update_msg and websocket:
+        await websocket.send_text(json.dumps(update_msg))
 
 
 async def _handle_command_result(session: Session, msg: dict):
