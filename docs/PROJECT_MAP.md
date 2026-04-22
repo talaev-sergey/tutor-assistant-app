@@ -123,7 +123,7 @@ graph TB
 | Parameter | prod | dev |
 |---|---|---|
 | Hostname | `266602.fornex.cloud` | `dev.266602.fornex.cloud` |
-| FastAPI port | 8080 | 8081 |
+| FastAPI port | 8080 | 8082 |
 | Database | `/opt/classroom/app.db` | `/opt/classroom-dev/app-dev.db` |
 | systemd unit | `classroom-backend` | `classroom-backend-dev` |
 | WebSocket URL | `wss://266602.fornex.cloud/ws` | `wss://dev.266602.fornex.cloud/ws` |
