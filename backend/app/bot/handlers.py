@@ -1,11 +1,12 @@
 import logging
 from sqlmodel import select
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from ..config import settings
 from ..database import get_session
 from ..models import PC, User
+from ..services.login_token_service import create_login_token
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    token = create_login_token(user.telegram_id)
+    login_url = f"{settings.webapp_url.rstrip('/')}/?token={token}"
+
     kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🖥 Открыть Класс-Контроль", web_app=WebAppInfo(url=settings.webapp_url))
+        InlineKeyboardButton("🖥 Войти в Класс-Контроль", url=login_url)
     ]])
     await update.message.reply_text(
-        f"👋 Привет, {user.full_name}!\nУправляй компьютерами класса прямо здесь.",
+        f"👋 Привет, {user.full_name}!\n\nНажми кнопку ниже для входа.\n"
+        f"Ссылка действительна 10 минут.",
         reply_markup=kb,
     )
 

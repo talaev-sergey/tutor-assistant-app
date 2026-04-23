@@ -1,39 +1,11 @@
-import { useEffect, useRef } from 'react';
-
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: Record<string, string | number>) => void;
-  }
-}
-
 interface LoginPageProps {
   botUsername: string;
-  onAuth: (data: Record<string, string | number>) => void;
   error: string | null;
   loading: boolean;
 }
 
-export default function LoginPage({ botUsername, onAuth, error, loading }: LoginPageProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    window.onTelegramAuth = onAuth;
-
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-    script.setAttribute('data-request-access', 'write');
-    script.async = true;
-
-    if (containerRef.current) {
-      containerRef.current.innerHTML = '';
-      containerRef.current.appendChild(script);
-    }
-
-    return () => { delete window.onTelegramAuth; };
-  }, [botUsername, onAuth]);
+export default function LoginPage({ botUsername, error, loading }: LoginPageProps) {
+  const botLink = botUsername ? `https://t.me/${botUsername}` : '#';
 
   return (
     <div style={{
@@ -43,14 +15,32 @@ export default function LoginPage({ botUsername, onAuth, error, loading }: Login
     }}>
       <div style={{ fontSize: 48 }}>🖥</div>
       <div style={{ fontSize: 22, fontWeight: 700 }}>Класс-Контроль</div>
-      <div style={{ fontSize: 14, color: '#888', textAlign: 'center', maxWidth: 280 }}>
-        Войдите через Telegram для доступа к управлению классом
-      </div>
 
       {loading ? (
         <div style={{ color: '#888', fontSize: 14 }}>Вход…</div>
       ) : (
-        <div ref={containerRef} />
+        <>
+          <div style={{ fontSize: 15, color: '#bbb', textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
+            Для входа напишите боту <strong style={{ color: '#fff' }}>@{botUsername || 'боту'}</strong> команду{' '}
+            <code style={{ background: '#1e1e2e', padding: '2px 6px', borderRadius: 4 }}>/start</code>
+            {' '}и нажмите кнопку из ответа.
+          </div>
+
+          {botUsername && (
+            <a
+              href={botLink}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'inline-block', padding: '12px 28px',
+                background: '#2481cc', color: '#fff', borderRadius: 10,
+                textDecoration: 'none', fontSize: 15, fontWeight: 600,
+              }}
+            >
+              Открыть бота
+            </a>
+          )}
+        </>
       )}
 
       {error && (

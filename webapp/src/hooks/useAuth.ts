@@ -26,14 +26,14 @@ export function useAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loginWithTelegram = useCallback(async (tgData: Record<string, string | number>) => {
+  const loginWithToken = useCallback(async (oneTimeToken: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/telegram', {
+      const res = await fetch('/api/auth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tgData),
+        body: JSON.stringify({ token: oneTimeToken }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -42,8 +42,10 @@ export function useAuth() {
       const data = await res.json();
       storeToken(data.token);
       setUser({ telegram_id: data.telegram_id, full_name: data.full_name, is_admin: data.is_admin });
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка входа');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -67,5 +69,5 @@ export function useAuth() {
     }
   }, []);
 
-  return { user, loading, error, loginWithTelegram, logout, restoreSession };
+  return { user, loading, error, loginWithToken, logout, restoreSession };
 }

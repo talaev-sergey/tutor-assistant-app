@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import ListPage from './pages/ListPage';
 import ActionsPage from './pages/ActionsPage';
 import ProgramsPage from './pages/ProgramsPage';
@@ -48,7 +48,8 @@ function getTargetName(target: Target, onlinePCIds: number[], pcs: PC[]): string
 export default function App() {
   const { tg, hapticImpact, hapticSelection, showConfirm } = useTelegram();
   const { toast, showToast } = useToast();
-  const { user, loading: authLoading, error: authError, loginWithTelegram, restoreSession } = useAuth();
+  const { user, loading: authLoading, error: authError, loginWithToken, restoreSession } = useAuth();
+  const tokenConsumedRef = useRef(false);
   const { pcs, loading: pcsLoading, error: pcsError, refresh } = usePCs(user ? 5000 : 0);
   const { programs } = usePrograms();
 
@@ -62,7 +63,18 @@ export default function App() {
   const protectedPCs = useMemo(() => new Set(pcs.filter(p => p.protected).map(p => p.id)), [pcs]);
   const lockedPCs = useMemo(() => new Set(pcs.filter(p => p.locked).map(p => p.id)), [pcs]);
 
-  useEffect(() => { restoreSession(); }, [restoreSession]);
+  useEffect(() => {
+    if (tokenConsumedRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      tokenConsumedRef.current = true;
+      window.history.replaceState({}, '', window.location.pathname);
+      loginWithToken(urlToken);
+    } else {
+      restoreSession();
+    }
+  }, [loginWithToken, restoreSession]);
 
   useEffect(() => {
     if (tg) {
@@ -199,7 +211,6 @@ export default function App() {
     return (
       <LoginPage
         botUsername={BOT_USERNAME}
-        onAuth={loginWithTelegram}
         error={authError}
         loading={authLoading}
       />

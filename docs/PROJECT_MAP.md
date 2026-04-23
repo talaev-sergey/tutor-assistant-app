@@ -1305,8 +1305,9 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [x] Manual deploy via `deploy.sh` + `update_host.sh`
 - [x] Logging: Serilog file + Windows Event Log on agent
 - [x] GitHub Actions CI/CD (deploy window block 08:00–16:00 MSK)
-- [x] **Webapp: connect to real API** — usePCs (poll 5s), usePrograms, API client with tma auth, PCGrid renders real PC objects
-- [x] Telegram bot: /start (Mini App button), /status, /add_teacher
+- [x] **Webapp: connect to real API** — usePCs (poll 5s), usePrograms, API client with Bearer JWT, PCGrid renders real PC objects
+- [x] **Webapp auth: one-time link via bot** — /start generates token (10 min), link opens webapp, token exchanged for JWT (stored in localStorage)
+- [x] Telegram bot: /start (one-time login link), /status, /add_teacher
 - *Groups: NO (single room for MVP)*
 
 ### v1 — full school, CI/CD
