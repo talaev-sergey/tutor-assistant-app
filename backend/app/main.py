@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from .config import settings
 from .database import engine, create_db_and_tables
-from .api import health, pcs, commands, tokens, programs, groups
+from .api import health, pcs, commands, tokens, programs, groups, auth
 from .ws.handlers import handle_websocket
 from .ws.manager import manager
 from .bot.handlers import build_bot_app
@@ -65,6 +65,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(pcs.router, prefix="/api/pcs", tags=["PCs"])
 app.include_router(commands.router, prefix="/api/commands", tags=["Commands"])
 app.include_router(tokens.router, prefix="/api/tokens", tags=["Tokens"])

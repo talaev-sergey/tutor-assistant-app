@@ -1,11 +1,15 @@
-function getInitData(): string {
-  return window.Telegram?.WebApp?.initData ?? '';
-}
-
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
+}
+
+function getAuthHeader(): string {
+  const jwt = localStorage.getItem('classroom_jwt');
+  if (jwt) return `Bearer ${jwt}`;
+  const initData = window.Telegram?.WebApp?.initData;
+  if (initData) return `tma ${initData}`;
+  return '';
 }
 
 export async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
@@ -13,7 +17,7 @@ export async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise
     ...opts,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `tma ${getInitData()}`,
+      Authorization: getAuthHeader(),
       ...(opts.headers as Record<string, string> | undefined),
     },
   });

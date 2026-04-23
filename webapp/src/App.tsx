@@ -2,13 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import ListPage from './pages/ListPage';
 import ActionsPage from './pages/ActionsPage';
 import ProgramsPage from './pages/ProgramsPage';
+import LoginPage from './pages/LoginPage';
 import Toast from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { useTelegram } from './hooks/useTelegram';
 import { usePCs } from './hooks/usePCs';
 import { usePrograms } from './hooks/usePrograms';
+import { useAuth } from './hooks/useAuth';
 import { apiFetch } from './api/client';
 import type { PC, Program, CommandRequest } from './api/types';
+
+const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME ?? '';
 
 type Page = 'list' | 'actions' | 'programs';
 type Target = number | number[] | 'all';
@@ -44,7 +48,8 @@ function getTargetName(target: Target, onlinePCIds: number[], pcs: PC[]): string
 export default function App() {
   const { tg, hapticImpact, hapticSelection, showConfirm } = useTelegram();
   const { toast, showToast } = useToast();
-  const { pcs, loading: pcsLoading, error: pcsError, refresh } = usePCs(5000);
+  const { user, loading: authLoading, error: authError, loginWithTelegram, restoreSession } = useAuth();
+  const { pcs, loading: pcsLoading, error: pcsError, refresh } = usePCs(user ? 5000 : 0);
   const { programs } = usePrograms();
 
   const [page, setPage] = useState<Page>('list');
@@ -56,6 +61,8 @@ export default function App() {
   const onlinePCIds = useMemo(() => pcs.filter(p => p.online).map(p => p.id), [pcs]);
   const protectedPCs = useMemo(() => new Set(pcs.filter(p => p.protected).map(p => p.id)), [pcs]);
   const lockedPCs = useMemo(() => new Set(pcs.filter(p => p.locked).map(p => p.id)), [pcs]);
+
+  useEffect(() => { restoreSession(); }, [restoreSession]);
 
   useEffect(() => {
     if (tg) {
@@ -184,6 +191,19 @@ export default function App() {
     } catch {
       showToast('⚠️ Ошибка отправки команды');
     }
+  }
+
+  if (authLoading) return null;
+
+  if (!user) {
+    return (
+      <LoginPage
+        botUsername={BOT_USERNAME}
+        onAuth={loginWithTelegram}
+        error={authError}
+        loading={authLoading}
+      />
+    );
   }
 
   if (pcsError && !pcs.length) {

@@ -12,6 +12,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "packaging>=24.0",
     "python-telegram-bot[ext]>=21.0",
+    "pyjwt>=2.8",
 ]
 
 [project.optional-dependencies]
