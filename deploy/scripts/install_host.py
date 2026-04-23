@@ -98,31 +98,13 @@ def ask_config() -> dict:
         style=QUESTIONARY_STYLE,
     ).ask() or "0"
 
-    db_path = questionary.text(
-        "Путь к базе данных:",
-        default=str(BACKEND_DIR / "app.db"),
-        style=QUESTIONARY_STYLE,
-    ).ask()
-
-    port = questionary.text(
-        "Порт бэкенда:",
-        default="8082",
-        style=QUESTIONARY_STYLE,
-    ).ask()
-
-    webapp_url = questionary.text(
-        "WEBAPP_URL (оставьте пустым — авто-определение IP):",
-        default="",
-        style=QUESTIONARY_STYLE,
-    ).ask()
-
     console.print()
     return {
         "BOT_TOKEN": bot_token.strip(),
         "ADMIN_TELEGRAM_ID": admin_id.strip(),
-        "DATABASE_URL": f"sqlite:///{db_path.strip()}",
-        "PORT": port.strip(),
-        "WEBAPP_URL": webapp_url.strip(),
+        "DATABASE_URL": f"sqlite:///{BACKEND_DIR / 'app.db'}",
+        "PORT": "8082",
+        "WEBAPP_URL": "",
     }
 
 
