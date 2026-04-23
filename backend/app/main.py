@@ -24,17 +24,26 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
     logger.info("Classroom Control Backend started (version %s)", settings.app_version)
 
-    bot_app = build_bot_app()
-    await bot_app.initialize()
-    await bot_app.start()
-    await bot_app.updater.start_polling(allowed_updates=["message"])
-    logger.info("Telegram bot started (polling)")
+    bot_app = None
+    if settings.bot_token:
+        try:
+            bot_app = build_bot_app()
+            await bot_app.initialize()
+            await bot_app.start()
+            await bot_app.updater.start_polling(allowed_updates=["message"])
+            logger.info("Telegram bot started (polling)")
+        except Exception as e:
+            logger.warning("Telegram bot failed to start: %s", e)
+            bot_app = None
+    else:
+        logger.info("BOT_TOKEN not set — Telegram bot disabled")
 
     yield
 
-    await bot_app.updater.stop()
-    await bot_app.stop()
-    await bot_app.shutdown()
+    if bot_app:
+        await bot_app.updater.stop()
+        await bot_app.stop()
+        await bot_app.shutdown()
     logger.info("Backend shutting down")
 
 
