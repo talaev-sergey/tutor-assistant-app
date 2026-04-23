@@ -103,3 +103,11 @@ ClassroomSetup.exe   # GUI installer — enter PcName, BackendUrl, Token
 # Update host (Windows)
 .\deploy\scripts\update_host.ps1
 ```
+
+## Workflow (before every commit)
+
+After finishing any change to the project, before creating a commit:
+
+1. Check `.knowledge/index.md` and `.knowledge/topics/` — update only if information is outdated or missing. Do not change what is still accurate.
+2. Check `docs/PROJECT_MAP.md` — update the MVP/v1 checklist and any structural sections that changed. Do not rewrite sections that are still correct.
+3. Then commit.
