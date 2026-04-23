@@ -10,6 +10,7 @@ from .database import engine, create_db_and_tables
 from .api import health, pcs, commands, tokens, programs, groups
 from .ws.handlers import handle_websocket
 from .ws.manager import manager
+from .bot.handlers import build_bot_app
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -22,9 +23,24 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     create_db_and_tables()
     logger.info("Classroom Control Backend started (version %s)", settings.app_version)
+
+    bot_app = build_bot_app()
+    await bot_app.initialize()
+    await bot_app.start()
+    await bot_app.updater.start_polling(allowed_updates=["message"])
+    logger.info("Telegram bot started (polling)")
+
     yield
+
+    await bot_app.updater.stop()
+    await bot_app.stop()
+    await bot_app.shutdown()
     logger.info("Backend shutting down")
 
+
+CORS_ORIGINS = ["https://t.me", "https://web.telegram.org"]
+if settings.debug:
+    CORS_ORIGINS += ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174"]
 
 app = FastAPI(
     title="Classroom Control API",
@@ -34,7 +50,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://t.me", "https://web.telegram.org"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )

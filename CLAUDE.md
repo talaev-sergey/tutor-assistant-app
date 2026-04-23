@@ -33,6 +33,9 @@ uv run pytest                        # Run tests
 # Bootstrap first admin + create PC token (no webapp needed):
 uv run python scripts/create_token.py --telegram-id 123456789 --name "PC-01"
 uv run python scripts/create_token.py --name "PC-02"
+
+# Seed default programs into DB:
+uv run python scripts/seed_programs.py
 ```
 
 Environment: copy `backend/.env.example` → `backend/.env` and fill in values.
@@ -43,10 +46,12 @@ Run from `webapp/` directory:
 
 ```bash
 pnpm install    # Install dependencies
-pnpm dev        # Vite dev server
+pnpm dev        # Vite dev server on :5173 (proxies /api → backend :8082)
 pnpm build      # Production build → dist/
 pnpm typecheck  # TypeScript check
 ```
+
+Set `VITE_API_URL=http://<backend-host>:8082` if backend is not on localhost.
 
 ## Agent Commands
 

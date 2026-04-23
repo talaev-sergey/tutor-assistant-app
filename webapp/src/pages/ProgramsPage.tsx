@@ -1,19 +1,23 @@
 import { useState, useMemo } from 'react';
-import { PROGRAMS, Program } from '../data/constants';
 import { ChevronLeft, Search, X, MonitorPlay } from 'lucide-react';
+import type { PC, Program } from '../api/types';
 
 type Target = number | number[] | 'all';
 
 interface ProgramsPageProps {
   target: Target;
+  pcs: PC[];
+  programs: Program[];
   onBack: () => void;
   onLaunch: (programs: Program[]) => void;
 }
 
-function getSubtitle(target: Target): string {
+function getSubtitle(target: Target, pcs: PC[]): string {
   if (target === 'all') return 'Все онлайн-ПК';
-  if (Array.isArray(target)) return 'ПК ' + target.join(', ');
-  return 'ПК ' + target;
+  if (Array.isArray(target)) {
+    return target.map(id => pcs.find(p => p.id === id)?.name ?? `#${id}`).join(', ');
+  }
+  return pcs.find(p => p.id === target)?.name ?? `#${target}`;
 }
 
 function hlMatch(text: string, q: string): string {
@@ -37,33 +41,33 @@ function CheckboxIcon({ checked }: { checked: boolean }) {
   );
 }
 
-export default function ProgramsPage({ target, onBack, onLaunch }: ProgramsPageProps) {
+export default function ProgramsPage({ target, pcs, programs, onBack, onLaunch }: ProgramsPageProps) {
   const [query, setQuery] = useState('');
   const [selectedProgs, setSelectedProgs] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PROGRAMS;
-    return PROGRAMS.filter(p =>
-      p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)
+    if (!q) return programs;
+    return programs.filter(p =>
+      p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, programs]);
 
-  function toggleProg(id: string) {
+  function toggleProg(slug: string) {
     setSelectedProgs(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
       return next;
     });
   }
 
   function handleLaunch() {
-    const chosen = PROGRAMS.filter(p => selectedProgs.has(p.id));
+    const chosen = programs.filter(p => selectedProgs.has(p.slug));
     onLaunch(chosen);
   }
 
-  const subtitle = getSubtitle(target);
+  const subtitle = getSubtitle(target, pcs);
   const n = selectedProgs.size;
 
   return (
@@ -102,18 +106,18 @@ export default function ProgramsPage({ target, onBack, onLaunch }: ProgramsPageP
       ) : (
         <div className="prog-list">
           {filtered.map((p, i) => {
-            const checked = selectedProgs.has(p.id);
+            const checked = selectedProgs.has(p.slug);
             const nameHtml = hlMatch(p.name, query);
             return (
               <div
-                key={p.id}
+                key={p.slug}
                 className={`prog-item${checked ? ' checked' : ''} fade-up-${Math.min(i + 2, 13)}`}
-                onClick={() => toggleProg(p.id)}
+                onClick={() => toggleProg(p.slug)}
               >
-                <span className="prog-icon">{p.icon}</span>
+                <span className="prog-icon">{p.icon ?? '📁'}</span>
                 <div className="prog-info">
                   <div className="prog-name" dangerouslySetInnerHTML={{ __html: nameHtml }} />
-                  <div className="prog-desc">{p.desc}</div>
+                  <div className="prog-desc">{p.description ?? ''}</div>
                 </div>
                 <CheckboxIcon checked={checked} />
               </div>

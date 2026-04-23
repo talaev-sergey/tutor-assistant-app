@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./app.db"
     bot_token: str
     admin_telegram_id: int
+    webapp_url: str = ""
     app_version: str = "1.0.0"
     debug: bool = False
 

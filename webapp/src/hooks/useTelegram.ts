@@ -2,6 +2,7 @@ declare global {
   interface Window {
     Telegram?: {
       WebApp: {
+        initData: string;
         ready: () => void;
         expand: () => void;
         setHeaderColor: (color: string) => void;
@@ -23,6 +24,7 @@ declare global {
 
 export function useTelegram() {
   const tg = window.Telegram?.WebApp ?? null;
+  const initData = tg?.initData ?? '';
 
   const hapticImpact = (style: 'light' | 'medium' | 'heavy' = 'medium') => {
     tg?.HapticFeedback.impactOccurred(style);
@@ -36,10 +38,9 @@ export function useTelegram() {
     if (tg) {
       tg.showConfirm(message, callback);
     } else {
-      const ok = confirm(message);
-      callback(ok);
+      callback(confirm(message));
     }
   };
 
-  return { tg, hapticImpact, hapticSelection, showConfirm };
+  return { tg, initData, hapticImpact, hapticSelection, showConfirm };
 }

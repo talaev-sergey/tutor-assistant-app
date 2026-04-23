@@ -1,32 +1,61 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ListPage from './pages/ListPage';
 import ActionsPage from './pages/ActionsPage';
 import ProgramsPage from './pages/ProgramsPage';
 import Toast from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { useTelegram } from './hooks/useTelegram';
-import { ONLINE_PCS, PROTECTED_PCS, Program } from './data/constants';
+import { usePCs } from './hooks/usePCs';
+import { usePrograms } from './hooks/usePrograms';
+import { apiFetch } from './api/client';
+import type { PC, Program, CommandRequest } from './api/types';
 
 type Page = 'list' | 'actions' | 'programs';
 type Target = number | number[] | 'all';
 
-function getTargetName(target: Target, onlineCount: number): string {
-  if (target === 'all') return `все онлайн (${onlineCount})`;
-  if (Array.isArray(target)) return 'ПК ' + target.join(', ');
-  return 'ПК ' + target;
+function buildCommandRequest(action: string, target: Target, onlinePCIds: number[]): CommandRequest {
+  const targetBase = (() => {
+    if (target === 'all') return { target_type: 'all' as const };
+    if (Array.isArray(target)) return { target_type: 'multi' as const, target_pc_ids: target };
+    return { target_type: 'single' as const, target_pc_id: target };
+  })();
+
+  const actionMap: Record<string, string> = {
+    'protect-on': 'protect_on',
+    'protect-off': 'protect_off',
+    'lock-on': 'lock',
+    'lock-off': 'unlock',
+    reboot: 'reboot',
+    shutdown: 'shutdown',
+  };
+
+  return { ...targetBase, command_type: actionMap[action] ?? action };
+}
+
+function getTargetName(target: Target, onlinePCIds: number[], pcs: PC[]): string {
+  if (target === 'all') return `все онлайн (${onlinePCIds.length})`;
+  if (Array.isArray(target)) {
+    const names = target.map(id => pcs.find(p => p.id === id)?.name ?? `#${id}`);
+    return names.join(', ');
+  }
+  return pcs.find(p => p.id === target)?.name ?? `#${target}`;
 }
 
 export default function App() {
   const { tg, hapticImpact, hapticSelection, showConfirm } = useTelegram();
   const { toast, showToast } = useToast();
+  const { pcs, loading: pcsLoading, error: pcsError, refresh } = usePCs(5000);
+  const { programs } = usePrograms();
 
   const [page, setPage] = useState<Page>('list');
   const [target, setTarget] = useState<Target>('all');
   const [multiMode, setMultiMode] = useState(false);
   const [selectedPCs, setSelectedPCs] = useState<Set<number>>(new Set());
-  const [protectedPCs, setProtectedPCs] = useState<Set<number>>(new Set(PROTECTED_PCS));
-  const [lockedPCs, setLockedPCs] = useState<Set<number>>(new Set<number>());
-  const [taskPCs, setTaskPCs] = useState<Set<number>>(new Set<number>());
+
+  // Derived from API data
+  const onlinePCIds = useMemo(() => pcs.filter(p => p.online).map(p => p.id), [pcs]);
+  const protectedPCs = useMemo(() => new Set(pcs.filter(p => p.protected).map(p => p.id)), [pcs]);
+  const lockedPCs = useMemo(() => new Set(pcs.filter(p => p.locked).map(p => p.id)), [pcs]);
 
   useEffect(() => {
     if (tg) {
@@ -60,32 +89,30 @@ export default function App() {
     navigateTo('actions');
   }
 
-  function handlePCClick(pc: number) {
-    openActions(pc);
-  }
+  function handlePCClick(pcId: number) { openActions(pcId); }
 
-  function handlePCLongPress(pc: number) {
+  function handlePCLongPress(pcId: number) {
     hapticImpact('medium');
     setMultiMode(true);
-    setSelectedPCs(new Set([pc]));
+    setSelectedPCs(new Set([pcId]));
   }
 
-  function handlePCSelect(pc: number) {
+  function handlePCSelect(pcId: number) {
     hapticSelection();
     setSelectedPCs(prev => {
       const next = new Set(prev);
-      if (next.has(pc)) next.delete(pc);
-      else next.add(pc);
+      if (next.has(pcId)) next.delete(pcId);
+      else next.add(pcId);
       return next;
     });
   }
 
   function handleSelectAll() {
     hapticImpact('light');
-    if (selectedPCs.size === ONLINE_PCS.length) {
+    if (selectedPCs.size === onlinePCIds.length) {
       setSelectedPCs(new Set());
     } else {
-      setSelectedPCs(new Set(ONLINE_PCS));
+      setSelectedPCs(new Set(onlinePCIds));
     }
   }
 
@@ -99,48 +126,20 @@ export default function App() {
     openActions(arr);
   }
 
-  function handleAction(action: string) {
+  async function handleAction(action: string) {
     if (action === 'launch') {
       navigateTo('programs');
       return;
     }
 
-    const targetName = getTargetName(target, ONLINE_PCS.length);
+    const targetName = getTargetName(target, onlinePCIds, pcs);
     const confirms: Record<string, string> = {
       reboot: 'Перезагрузить?',
       shutdown: 'Выключить?',
       'protect-off': 'Отключить защиту?',
     };
 
-    const exec = () => {
-      const targets = target === 'all'
-        ? ONLINE_PCS
-        : Array.isArray(target)
-        ? target
-        : [target];
-
-      if (action === 'protect-on' || action === 'protect-off') {
-        setProtectedPCs(prev => {
-          const next = new Set(prev);
-          targets.forEach(n => {
-            if (action === 'protect-on') next.add(n);
-            else next.delete(n);
-          });
-          return next;
-        });
-      }
-
-      if (action === 'lock-on' || action === 'lock-off') {
-        setLockedPCs(prev => {
-          const next = new Set(prev);
-          targets.forEach(n => {
-            if (action === 'lock-on') next.add(n);
-            else next.delete(n);
-          });
-          return next;
-        });
-      }
-
+    const exec = async () => {
       const msgs: Record<string, (t: string) => string> = {
         'protect-on': t => `🛡 Защита включена → ${t}`,
         'protect-off': t => `🔓 Защита отключена → ${t}`,
@@ -150,8 +149,16 @@ export default function App() {
         shutdown: t => `⏻ Выключение → ${t}`,
       };
 
-      showToast(msgs[action](targetName));
+      showToast(msgs[action]?.(targetName) ?? `Команда отправлена → ${targetName}`);
       hapticImpact('medium');
+
+      try {
+        const req = buildCommandRequest(action, target, onlinePCIds);
+        await apiFetch('/api/commands', { method: 'POST', body: JSON.stringify(req) });
+        setTimeout(refresh, 1500);
+      } catch {
+        showToast('⚠️ Ошибка отправки команды');
+      }
     };
 
     if (confirms[action]) {
@@ -161,19 +168,52 @@ export default function App() {
     }
   }
 
-  function handleLaunch(programs: Program[]) {
-    const names = programs.map(p => p.name).join(', ');
-    showToast('📂 Запущено: ' + names);
+  async function handleLaunch(selectedPrograms: Program[]) {
+    const names = selectedPrograms.map(p => p.name).join(', ');
+    showToast('📂 Запуск: ' + names);
     hapticImpact('medium');
+
+    try {
+      const slugs = selectedPrograms.map(p => p.slug);
+      const req: CommandRequest = {
+        ...buildCommandRequest('launch', target, onlinePCIds),
+        command_type: 'launch',
+        params: { programs: slugs },
+      };
+      await apiFetch('/api/commands', { method: 'POST', body: JSON.stringify(req) });
+    } catch {
+      showToast('⚠️ Ошибка отправки команды');
+    }
+  }
+
+  if (pcsError && !pcs.length) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100vh', gap: 12,
+        color: '#888', padding: 24, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 48 }}>⚠️</div>
+        <div style={{ fontSize: 16, color: '#ccc' }}>{pcsError}</div>
+        <button
+          onClick={refresh}
+          style={{ marginTop: 8, padding: '8px 20px', borderRadius: 8, border: '1px solid #444', background: 'transparent', color: '#aaa', cursor: 'pointer' }}
+        >
+          Повторить
+        </button>
+      </div>
+    );
   }
 
   return (
     <>
       {page === 'list' && (
         <ListPage
+          pcs={pcs}
+          loading={pcsLoading}
           protectedPCs={protectedPCs}
           lockedPCs={lockedPCs}
-          taskPCs={taskPCs}
+          taskPCs={new Set()}
           multiMode={multiMode}
           selectedPCs={selectedPCs}
           onPCClick={handlePCClick}
@@ -189,6 +229,7 @@ export default function App() {
       {page === 'actions' && (
         <ActionsPage
           target={target}
+          pcs={pcs}
           protectedPCs={protectedPCs}
           lockedPCs={lockedPCs}
           onBack={() => navigateTo('list')}
@@ -199,6 +240,8 @@ export default function App() {
       {page === 'programs' && (
         <ProgramsPage
           target={target}
+          pcs={pcs}
+          programs={programs}
           onBack={() => navigateTo('actions')}
           onLaunch={handleLaunch}
         />

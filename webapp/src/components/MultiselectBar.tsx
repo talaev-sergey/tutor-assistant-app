@@ -1,16 +1,15 @@
-import { ONLINE_PCS } from '../data/constants';
-
 interface MultiselectBarProps {
   selectedPCs: Set<number>;
+  totalOnline: number;
   onSelectAll: () => void;
   onCancel: () => void;
   onGo: () => void;
 }
 
-export default function MultiselectBar({ selectedPCs, onSelectAll, onCancel, onGo }: MultiselectBarProps) {
+export default function MultiselectBar({ selectedPCs, totalOnline, onSelectAll, onCancel, onGo }: MultiselectBarProps) {
   const n = selectedPCs.size;
-  const allSelected = n === ONLINE_PCS.length;
-  const label = n === 0 ? 'Выберите ПК' : `Выбрано: ${n} из ${ONLINE_PCS.length}`;
+  const allSelected = n === totalOnline;
+  const label = n === 0 ? 'Выберите ПК' : `Выбрано: ${n} из ${totalOnline}`;
 
   return (
     <div className="multiselect-bar">

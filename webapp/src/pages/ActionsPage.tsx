@@ -1,30 +1,35 @@
-import { ONLINE_PCS } from '../data/constants';
 import { ChevronLeft, Monitor, Zap, FolderOpen, ShieldCheck, Lock, RotateCw, Power } from 'lucide-react';
+import type { PC } from '../api/types';
 
 type Target = number | number[] | 'all';
 
 interface ActionsPageProps {
   target: Target;
+  pcs: PC[];
   protectedPCs: Set<number>;
   lockedPCs: Set<number>;
   onBack: () => void;
   onAction: (action: string) => void;
 }
 
-function getTargetLabel(target: Target): string {
+function getTargetLabel(target: Target, pcs: PC[]): string {
   if (target === 'all') return 'Все онлайн-ПК';
-  if (Array.isArray(target)) return 'ПК ' + target.join(', ');
-  return 'ПК ' + target;
+  if (Array.isArray(target)) {
+    const names = target.map(id => pcs.find(p => p.id === id)?.name ?? `#${id}`);
+    return names.join(', ');
+  }
+  return pcs.find(p => p.id === target)?.name ?? `#${target}`;
 }
 
-function getTargetMeta(target: Target): { text: string; isAll: boolean } {
-  if (target === 'all') return { text: ONLINE_PCS.length + ' компьютеров', isAll: true };
+function getTargetMeta(target: Target, pcs: PC[]): { text: string; isAll: boolean } {
+  if (target === 'all') return { text: pcs.filter(p => p.online).length + ' компьютеров', isAll: true };
   if (Array.isArray(target)) return { text: target.length + ' компьютеров', isAll: true };
-  return { text: 'онлайн', isAll: false };
+  const pc = pcs.find(p => p.id === target);
+  return { text: pc?.online ? 'онлайн' : 'офлайн', isAll: false };
 }
 
-function getTargetPCs(target: Target): number[] {
-  if (target === 'all') return ONLINE_PCS;
+function getTargetPCIds(target: Target, pcs: PC[]): number[] {
+  if (target === 'all') return pcs.filter(p => p.online).map(p => p.id);
   if (Array.isArray(target)) return target;
   return [target];
 }
@@ -34,12 +39,12 @@ function TargetIcon({ target, size = 18 }: { target: Target; size?: number }) {
   return <Monitor size={size} />;
 }
 
-export default function ActionsPage({ target, protectedPCs, lockedPCs, onBack, onAction }: ActionsPageProps) {
-  const label = getTargetLabel(target);
-  const meta = getTargetMeta(target);
-  const targetPCs = getTargetPCs(target);
-  const isProtected = targetPCs.length > 0 && targetPCs.every(pc => protectedPCs.has(pc));
-  const isLocked = targetPCs.length > 0 && targetPCs.every(pc => lockedPCs.has(pc));
+export default function ActionsPage({ target, pcs, protectedPCs, lockedPCs, onBack, onAction }: ActionsPageProps) {
+  const label = getTargetLabel(target, pcs);
+  const meta = getTargetMeta(target, pcs);
+  const targetPCIds = getTargetPCIds(target, pcs);
+  const isProtected = targetPCIds.length > 0 && targetPCIds.every(id => protectedPCs.has(id));
+  const isLocked = targetPCIds.length > 0 && targetPCIds.every(id => lockedPCs.has(id));
 
   return (
     <div className="page-wrapper slide-in">
