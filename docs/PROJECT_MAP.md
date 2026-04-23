@@ -1305,22 +1305,22 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [x] Manual deploy via `deploy.sh` + `update_host.sh`
 - [x] Logging: Serilog file + Windows Event Log on agent
 - [x] GitHub Actions CI/CD (deploy window block 08:00–16:00 MSK)
-- [ ] **Webapp: connect to real API** (remove hardcoded data, setBaseUrl, setAuthTokenGetter)
-- [ ] Telegram bot: /start, /status, /add_teacher
+- [x] **Webapp: connect to real API** — usePCs (poll 5s), usePrograms, API client with tma auth, PCGrid renders real PC objects
+- [x] Telegram bot: /start (Mini App button), /status, /add_teacher
 - *Groups: NO (single room for MVP)*
 
 ### v1 — full school, CI/CD
 
 - [ ] PC groups + PCGroupMembership
 - [ ] Mass commands to group / all
-- [ ] Program launch + AllowedProgram API + DB-synced paths
-- [ ] Telegram bot: /status, /add_teacher, /revoke_token
-- [ ] GitHub Actions CI/CD (master → prod, dev → dev)
-- [ ] Agent self-update (ClassroomUpdater + Ed25519 signing)
+- [x] Program launch + AllowedProgram API + DB-synced paths (seed_programs.py)
+- [x] Telegram bot: /status, /add_teacher (bot commands done; /revoke_token pending)
+- [x] GitHub Actions CI/CD (master → prod, deploy window block)
+- [x] Agent self-update (ClassroomUpdater + SHA256; Ed25519 signing pending)
 - [ ] Remote log upload (`upload_logs`)
 - [ ] Telegram admin alerts
 - [ ] Rate limiting
-- [ ] Reboot / Shutdown commands
+- [x] Reboot / Shutdown commands (implemented in agent + API)
 
 ### v2
 
