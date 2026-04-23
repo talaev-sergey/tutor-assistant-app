@@ -1,15 +1,16 @@
 [Unit]
-Description=Classroom Control Backend (prod)
+Description=Classroom Control Backend
 After=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=classroom
+User=root
 WorkingDirectory=/opt/classroom/backend
-ExecStart=/opt/classroom/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080
+ExecStart=/opt/classroom/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8082
 Restart=always
 RestartSec=5
-EnvironmentFile=/opt/classroom/backend/.env
+EnvironmentFile=/etc/classroom-control/secrets
 
 [Install]
 WantedBy=multi-user.target
