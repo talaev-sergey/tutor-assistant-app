@@ -5,7 +5,8 @@ from sqlmodel import select
 
 from ..database import get_session
 from ..middleware.auth import get_current_user
-from ..models import PC, User
+from ..models import PC, Token, User
+from ..ws.manager import manager
 
 router = APIRouter()
 
@@ -53,6 +54,31 @@ async def rename_pc(
         session.add(pc)
         session.commit()
         return {"id": pc.id, "name": pc.name}
+
+
+@router.delete("/{pc_id}", status_code=204)
+async def delete_pc(
+    pc_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    with get_session() as session:
+        pc = session.get(PC, pc_id)
+        if not pc:
+            raise HTTPException(status_code=404, detail="PC not found")
+        # Deactivate associated token
+        token = session.exec(select(Token).where(Token.pc_id == pc_id, Token.is_active == True)).first()
+        if token:
+            token.is_active = False
+            session.add(token)
+        session.delete(pc)
+        session.commit()
+
+    ws = manager._connections.get(pc_id)
+    if ws:
+        await ws.close(code=4401)
+        await manager.disconnect(pc_id)
 
 
 def _to_response(pc: PC) -> PCResponse:

@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     bot_token: str = ""
     admin_telegram_id: int = 0
     webapp_url: str = ""
-    webapp_port: int = 5173
+    webapp_port: int = 8082
     jwt_secret: str = "change-me-in-production"
     jwt_expire_hours: int = 24
     app_version: str = "1.0.0"

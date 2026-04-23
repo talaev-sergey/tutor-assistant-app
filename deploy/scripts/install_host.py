@@ -27,9 +27,10 @@ from questionary import Style
 
 console = Console()
 
-# Installer lives at deploy/scripts/install_host.py → backend is ../../backend
+# Installer lives at deploy/scripts/install_host.py → repo root is ../..
 SCRIPT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = (SCRIPT_DIR / "../../backend").resolve()
+WEBAPP_DIR = (SCRIPT_DIR / "../../webapp").resolve()
 
 SECRETS_DIR = Path("/etc/classroom-control")
 SECRETS_FILE = SECRETS_DIR / "secrets"
@@ -85,7 +86,7 @@ def check_root():
 
 
 def ask_config() -> dict:
-    step(1, 4, "Конфигурация")
+    step(1, 6, "Конфигурация")
 
     bot_token = questionary.password(
         "Telegram Bot Token (от @BotFather):",
@@ -112,7 +113,7 @@ def ask_config() -> dict:
 
 
 def generate_secrets(config: dict) -> dict:
-    step(2, 4, "Генерация секретов")
+    step(2, 6, "Генерация секретов")
 
     jwt_secret = secrets.token_hex(32)
     ok(f"JWT_SECRET сгенерирован ({len(jwt_secret)} символов)")
@@ -133,6 +134,7 @@ def write_secrets(config: dict):
         f"BOT_TOKEN={config['BOT_TOKEN']}",
         f"ADMIN_TELEGRAM_ID={config['ADMIN_TELEGRAM_ID']}",
         f"JWT_SECRET={config['JWT_SECRET']}",
+        f"WEBAPP_PORT={config['PORT']}",
         f"APP_VERSION=1.0.0",
         f"DEBUG=false",
     ]
@@ -150,8 +152,51 @@ def write_secrets(config: dict):
         SECRETS_FILE.chmod(0o600)
 
 
+def build_webapp():
+    step(3, 6, "Сборка веб-приложения (pnpm build)")
+
+    pnpm = subprocess.run(["which", "pnpm"], capture_output=True, text=True).stdout.strip()
+    if not pnpm:
+        npm = subprocess.run(["which", "npm"], capture_output=True, text=True).stdout.strip()
+        if not npm:
+            warn("pnpm/npm не найдены — пропускаю сборку webapp")
+            warn("Установи Node.js: https://nodejs.org/")
+            dist = WEBAPP_DIR / "dist" / "index.html"
+            if dist.exists():
+                ok(f"Используется существующая сборка: {dist.parent}")
+                return
+            warn("webapp/dist не найден — веб-приложение недоступно")
+            return
+        pnpm = npm
+        build_cmd = [npm, "run", "build"]
+    else:
+        build_cmd = [pnpm, "build"]
+
+    # Install deps if needed
+    install_result = subprocess.run(
+        [pnpm, "install"] if "pnpm" in pnpm else ["npm", "install"],
+        cwd=WEBAPP_DIR,
+        capture_output=True,
+        text=True,
+    )
+    if install_result.returncode != 0:
+        warn(f"Ошибка установки зависимостей webapp:\n{install_result.stderr[:300]}")
+
+    result = subprocess.run(build_cmd, cwd=WEBAPP_DIR, capture_output=True, text=True)
+    if result.returncode != 0:
+        warn(f"pnpm build завершился с ошибкой:\n{result.stderr[:300]}")
+        warn("Веб-приложение будет недоступно")
+        return
+
+    dist = WEBAPP_DIR / "dist" / "index.html"
+    if dist.exists():
+        ok(f"Webapp собран: {dist.parent}")
+    else:
+        warn("dist/index.html не найден после сборки")
+
+
 def sync_venv():
-    step(3, 5, "Установка зависимостей (uv sync)")
+    step(4, 6, "Установка зависимостей (uv sync)")
     uv = subprocess.run(["which", "uv"], capture_output=True, text=True).stdout.strip()
     if not uv:
         fail("uv не найден. Установите: curl -LsSf https://astral.sh/uv/install.sh | sh")
@@ -174,10 +219,10 @@ def sync_venv():
 
 
 def install_service(config: dict, uvicorn_bin: str):
-    step(4, 5, "Сохранение конфигурации")
+    step(5, 6, "Сохранение конфигурации")
     write_secrets(config)
 
-    step(5, 5, "Установка systemd-сервиса")
+    step(6, 6, "Установка systemd-сервиса")
 
     port = config["PORT"]
     unit = textwrap.dedent(f"""\
@@ -259,6 +304,7 @@ def main():
 
     config = ask_config()
     config = generate_secrets(config)
+    build_webapp()
     uvicorn_bin = sync_venv()
     install_service(config, uvicorn_bin)
     show_summary(config)

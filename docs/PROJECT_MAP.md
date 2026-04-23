@@ -1307,10 +1307,13 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [x] GitHub Actions CI/CD (deploy window block 08:00–16:00 MSK)
 - [x] **Webapp: connect to real API** — usePCs (poll 5s), usePrograms, API client with Bearer JWT, PCGrid renders real PC objects
 - [x] **Webapp auth: one-time link via bot** — /start generates token (10 min), link opens webapp, token exchanged for JWT (stored in localStorage)
-- [x] Telegram bot: /start (one-time login link), /status, /add_teacher
+- [x] Telegram bot: /start (one-time login link), /status, /add_teacher, /new_token
 - [x] **mDNS discovery** — backend announces `classroom.local` via zeroconf; installer defaults to `ws://classroom.local:8082/ws`
 - [x] **Auto webapp URL** — WEBAPP_URL auto-detected from LAN IP if not set in .env
 - [x] **Agent network resilience** — instant reconnect on NetworkAddressChanged (VPN toggle)
+- [x] **Backend serves webapp** — StaticFiles mounts `webapp/dist/`; SPA fallback; no nginx needed on LAN
+- [x] **Linux host installer** — `deploy/scripts/install_host.py`: pnpm build, uv sync, JWT_SECRET auto-gen, secrets in `/etc/classroom-control/secrets` (600), systemd service
+- [x] **Webapp Admin page** — gear icon (admin only): add PC (token shown once), rename, delete PC+token
 - *Groups: NO (single room for MVP)*
 
 ### v1 — full school, CI/CD
@@ -1318,7 +1321,7 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [ ] PC groups + PCGroupMembership
 - [ ] Mass commands to group / all
 - [x] Program launch + AllowedProgram API + DB-synced paths (seed_programs.py)
-- [x] Telegram bot: /status, /add_teacher (bot commands done; /revoke_token pending)
+- [x] Telegram bot: /status, /add_teacher, /new_token
 - [x] GitHub Actions CI/CD (master → prod, deploy window block)
 - [x] Agent self-update (ClassroomUpdater + SHA256; Ed25519 signing pending)
 - [ ] Remote log upload (`upload_logs`)

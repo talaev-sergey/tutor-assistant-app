@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import ListPage from './pages/ListPage';
 import ActionsPage from './pages/ActionsPage';
 import ProgramsPage from './pages/ProgramsPage';
+import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import Toast from './components/Toast';
 import { useToast } from './hooks/useToast';
@@ -14,7 +15,7 @@ import type { PC, Program, CommandRequest } from './api/types';
 
 const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME ?? '';
 
-type Page = 'list' | 'actions' | 'programs';
+type Page = 'list' | 'actions' | 'programs' | 'admin';
 type Target = number | number[] | 'all';
 
 function buildCommandRequest(action: string, target: Target, onlinePCIds: number[]): CommandRequest {
@@ -90,6 +91,7 @@ export default function App() {
     tg.BackButton.onClick(() => {
       if (page === 'programs') { setPage('actions'); }
       else if (page === 'actions') { setPage('list'); tg.BackButton.hide(); }
+      else if (page === 'admin') { setPage('list'); tg.BackButton.hide(); }
     });
   }, [tg, page]);
 
@@ -254,6 +256,7 @@ export default function App() {
           taskPCs={new Set()}
           multiMode={multiMode}
           selectedPCs={selectedPCs}
+          isAdmin={!!user?.is_admin}
           onPCClick={handlePCClick}
           onPCLongPress={handlePCLongPress}
           onPCSelect={handlePCSelect}
@@ -261,6 +264,7 @@ export default function App() {
           onCancelMulti={handleCancelMulti}
           onGoMulti={handleGoMulti}
           onAllClick={() => openActions('all')}
+          onAdminClick={() => navigateTo('admin')}
         />
       )}
 
@@ -282,6 +286,15 @@ export default function App() {
           programs={programs}
           onBack={() => navigateTo('actions')}
           onLaunch={handleLaunch}
+        />
+      )}
+
+      {page === 'admin' && (
+        <AdminPage
+          pcs={pcs}
+          onBack={() => navigateTo('list')}
+          onRefreshPCs={refresh}
+          showToast={showToast}
         />
       )}
 

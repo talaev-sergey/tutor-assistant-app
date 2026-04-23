@@ -112,6 +112,7 @@ function PCButton({ pc, isProtected, isLocked, hasTask, multiMode, selected, ani
 }
 
 export default function PCGrid({ pcs, loading, protectedPCs, lockedPCs, taskPCs, multiMode, selectedPCs, onPCClick, onPCLongPress, onPCSelect }: PCGridProps) {
+  const [showOffline, setShowOffline] = useState(false);
   const gridClass = `pc-grid${multiMode ? ' multiselect-mode' : ''}`;
 
   if (loading && pcs.length === 0) {
@@ -136,22 +137,52 @@ export default function PCGrid({ pcs, loading, protectedPCs, lockedPCs, taskPCs,
     );
   }
 
+  const onlinePCs = pcs.filter(p => p.online);
+  const offlinePCs = pcs.filter(p => !p.online);
+  const visiblePCs = showOffline ? pcs : onlinePCs;
+
   return (
-    <div className={gridClass}>
-      {pcs.map((pc, i) => (
-        <PCButton
-          key={pc.id}
-          pc={pc}
-          isProtected={protectedPCs.has(pc.id)}
-          isLocked={lockedPCs.has(pc.id)}
-          hasTask={taskPCs.has(pc.id)}
-          multiMode={multiMode}
-          selected={selectedPCs.has(pc.id)}
-          animClass={`fade-up-${Math.min(i + 2, 13)}`}
-          onSingleClick={() => { if (multiMode) onPCSelect(pc.id); else onPCClick(pc.id); }}
-          onLongPress={() => { if (!multiMode) onPCLongPress(pc.id); }}
-        />
-      ))}
-    </div>
+    <>
+      <div className={gridClass}>
+        {visiblePCs.map((pc, i) => (
+          <PCButton
+            key={pc.id}
+            pc={pc}
+            isProtected={protectedPCs.has(pc.id)}
+            isLocked={lockedPCs.has(pc.id)}
+            hasTask={taskPCs.has(pc.id)}
+            multiMode={multiMode}
+            selected={selectedPCs.has(pc.id)}
+            animClass={`fade-up-${Math.min(i + 2, 13)}`}
+            onSingleClick={() => { if (multiMode) onPCSelect(pc.id); else onPCClick(pc.id); }}
+            onLongPress={() => { if (!multiMode) onPCLongPress(pc.id); }}
+          />
+        ))}
+      </div>
+
+      {offlinePCs.length > 0 && (
+        <button
+          onClick={() => setShowOffline(v => !v)}
+          style={{
+            marginTop: 12,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--hint)',
+            fontSize: 13,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 0',
+          }}
+        >
+          <span style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: 'var(--hint)', flexShrink: 0, display: 'inline-block',
+          }} />
+          {showOffline ? `Скрыть недоступные` : `Недоступные: ${offlinePCs.length}`}
+        </button>
+      )}
+    </>
   );
 }

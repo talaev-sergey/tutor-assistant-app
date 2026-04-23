@@ -1,14 +1,19 @@
 import logging
 import socket
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 from zeroconf import ServiceInfo
 from zeroconf.asyncio import AsyncZeroconf
 
 from .config import settings, _detect_lan_ip
+
+WEBAPP_DIST = Path(__file__).resolve().parent.parent.parent / "webapp" / "dist"
 from .database import engine, create_db_and_tables
 from .api import health, pcs, commands, tokens, programs, groups, auth
 from .ws.handlers import handle_websocket
@@ -106,3 +111,16 @@ app.include_router(groups.router, prefix="/api/groups", tags=["Groups"])
 async def websocket_endpoint(websocket: WebSocket):
     with Session(engine) as session:
         await handle_websocket(websocket, session)
+
+
+# Serve webapp static files (production: webapp/dist must be built)
+if WEBAPP_DIST.exists():
+    # Static assets (JS/CSS/images) served directly
+    app.mount("/assets", StaticFiles(directory=str(WEBAPP_DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        file = WEBAPP_DIST / full_path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(WEBAPP_DIST / "index.html")

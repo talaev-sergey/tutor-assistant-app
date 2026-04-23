@@ -27,6 +27,15 @@ export interface CommandRequest {
   params?: Record<string, unknown>;
 }
 
+export interface AgentToken {
+  id: number;
+  name: string;
+  is_active: boolean;
+  pc_id: number | null;
+  last_used: string | null;
+  created_at: string;
+}
+
 export interface CommandResponse {
   command_id: string;
   trace_id: string;

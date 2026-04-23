@@ -5,8 +5,9 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from ..config import settings, get_webapp_url
 from ..database import get_session
-from ..models import PC, User
+from ..models import PC, User, Token
 from ..services.login_token_service import create_login_token
+from ..services.token_service import generate_token, hash_token
 
 logger = logging.getLogger(__name__)
 
@@ -137,9 +138,54 @@ async def cmd_add_teacher(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
+async def cmd_new_token(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+
+    tg_id = update.effective_user.id if update.effective_user else None
+    with get_session() as session:
+        admin = session.exec(
+            select(User).where(User.telegram_id == tg_id, User.is_admin == True, User.is_active == True)
+        ).first() if tg_id else None
+
+    if not admin:
+        await update.message.reply_text("⛔ Только администратор может создавать токены.")
+        return
+
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "Использование: /new_token <имя>\n"
+            "Пример: /new_token PC-05"
+        )
+        return
+
+    name = args[0]
+
+    with get_session() as session:
+        raw = generate_token()
+        token = Token(
+            name=name,
+            token_hash=hash_token(raw),
+            created_by=admin.id,
+        )
+        session.add(token)
+        session.commit()
+        session.refresh(token)
+
+    await update.message.reply_text(
+        f"✅ Токен для *{name}* создан\\.\n\n"
+        f"`{raw}`\n\n"
+        f"Вставь этот токен в ClassroomSetup\\.exe\\. "
+        f"Он показывается только один раз\\.",
+        parse_mode="MarkdownV2",
+    )
+
+
 def build_bot_app() -> Application:
     app = Application.builder().token(settings.bot_token).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("add_teacher", cmd_add_teacher))
+    app.add_handler(CommandHandler("new_token", cmd_new_token))
     return app

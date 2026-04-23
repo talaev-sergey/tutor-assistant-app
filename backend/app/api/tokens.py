@@ -1,6 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlmodel import select
 
 from ..database import get_session
 from ..middleware.auth import get_current_user
@@ -20,6 +21,36 @@ class TokenCreateResponse(BaseModel):
     name: str
     token: str  # shown once
     created_at: datetime
+
+
+class TokenListItem(BaseModel):
+    id: int
+    name: str
+    is_active: bool
+    pc_id: int | None
+    last_used: datetime | None
+    created_at: datetime
+
+
+@router.get("", response_model=list[TokenListItem])
+async def list_tokens(
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    with get_session() as session:
+        tokens = session.exec(select(Token)).all()
+        return [
+            TokenListItem(
+                id=t.id,
+                name=t.name,
+                is_active=t.is_active,
+                pc_id=t.pc_id,
+                last_used=t.last_used,
+                created_at=t.created_at,
+            )
+            for t in tokens
+        ]
 
 
 @router.post("", response_model=TokenCreateResponse, status_code=201)
