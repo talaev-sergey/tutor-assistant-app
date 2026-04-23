@@ -61,3 +61,12 @@ __pycache__/
 # Tool outputs
 graphify-out/
 .knowledge/
+*.db
+
+# .NET build artifacts
+agent/*/bin/
+agent/*/obj/
+agent/release/
+
+# Obsidian
+.obsidian/

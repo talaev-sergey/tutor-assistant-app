@@ -25,10 +25,14 @@ Run from `backend/` directory (uses `uv`):
 
 ```bash
 uv sync                              # Install dependencies
-uv run uvicorn app.main:app --reload # Dev server (hot reload) on :8000
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8082 --reload  # Dev server (LAN-accessible)
 uv run alembic upgrade head          # Apply migrations
 uv run alembic revision --autogenerate -m "description"  # New migration
 uv run pytest                        # Run tests
+
+# Bootstrap first admin + create PC token (no webapp needed):
+uv run python scripts/create_token.py --telegram-id 123456789 --name "PC-01"
+uv run python scripts/create_token.py --name "PC-02"
 ```
 
 Environment: copy `backend/.env.example` → `backend/.env` and fill in values.
@@ -44,14 +48,19 @@ pnpm build      # Production build → dist/
 pnpm typecheck  # TypeScript check
 ```
 
-## Agent Commands (Windows, requires .NET 8 SDK)
+## Agent Commands
 
 Run from `agent/` directory:
 
-```powershell
+```bash
+# Linux (cross-compile to win-x64):
+./publish.sh                         # Build all 3 projects → release/
+
+# Windows (requires .NET 8 SDK):
 .\publish.ps1                        # Build all 3 projects → release/
-# Outputs: ClassroomSetup.exe, ClassroomAgent.exe, ClassroomUpdater.exe
 ```
+
+Output: `release/ClassroomSetup.exe`, `ClassroomAgent.exe`, `ClassroomUpdater.exe`
 
 To install on a school PC (as Administrator):
 ```

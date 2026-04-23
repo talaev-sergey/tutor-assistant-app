@@ -5,7 +5,7 @@ public class IdempotencyCache
     private const int MaxSize = 1000;
     private readonly LinkedList<string> _order = new();
     private readonly Dictionary<string, string> _results = new();
-    private readonly Lock _lock = new();
+    private readonly object _lock = new();
 
     public bool TryGet(string commandId, out string? result)
     {

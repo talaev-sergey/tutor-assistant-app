@@ -1,11 +1,11 @@
 using ClassroomUpdater;
 
 // Args: --service-pid <pid> --new-path <path> --service-name <name>
-var args = ParseArgs(Environment.GetCommandLineArgs()[1..]);
+var parsedArgs = ParseArgs(Environment.GetCommandLineArgs()[1..]);
 
-if (!args.TryGetValue("service-pid", out var pidStr) ||
-    !args.TryGetValue("new-path", out var newPath) ||
-    !args.TryGetValue("service-name", out var serviceName))
+if (!parsedArgs.TryGetValue("service-pid", out var pidStr) ||
+    !parsedArgs.TryGetValue("new-path", out var newPath) ||
+    !parsedArgs.TryGetValue("service-name", out var serviceName))
 {
     Console.Error.WriteLine("Usage: ClassroomUpdater --service-pid <pid> --new-path <path> --service-name <name>");
     return 1;
