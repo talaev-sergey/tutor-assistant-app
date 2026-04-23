@@ -27,10 +27,12 @@ from questionary import Style
 
 console = Console()
 
+# Installer lives at deploy/scripts/install_host.py → backend is ../../backend
+SCRIPT_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = (SCRIPT_DIR / "../../backend").resolve()
+
 SECRETS_DIR = Path("/etc/classroom-control")
 SECRETS_FILE = SECRETS_DIR / "secrets"
-INSTALL_DIR = Path("/opt/classroom")
-BACKEND_DIR = INSTALL_DIR / "backend"
 SERVICE_NAME = "classroom-backend"
 SERVICE_FILE = Path(f"/etc/systemd/system/{SERVICE_NAME}.service")
 
@@ -105,6 +107,7 @@ def ask_config() -> dict:
         "DATABASE_URL": f"sqlite:///{BACKEND_DIR / 'app.db'}",
         "PORT": "8082",
         "WEBAPP_URL": "",
+        "BACKEND_DIR": str(BACKEND_DIR),
     }
 
 
@@ -119,7 +122,7 @@ def generate_secrets(config: dict) -> dict:
 
 
 def write_secrets(config: dict):
-    step(3, 4, "Сохранение конфигурации")
+    console.print()
 
     SECRETS_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     ok(f"Директория {SECRETS_DIR} создана")
@@ -147,8 +150,34 @@ def write_secrets(config: dict):
         SECRETS_FILE.chmod(0o600)
 
 
-def install_service(config: dict):
-    step(4, 4, "Установка systemd-сервиса")
+def sync_venv():
+    step(3, 5, "Установка зависимостей (uv sync)")
+    uv = subprocess.run(["which", "uv"], capture_output=True, text=True).stdout.strip()
+    if not uv:
+        fail("uv не найден. Установите: curl -LsSf https://astral.sh/uv/install.sh | sh")
+
+    result = subprocess.run(
+        [uv, "sync"],
+        cwd=BACKEND_DIR,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        fail(f"uv sync завершился с ошибкой:\n{result.stderr}")
+    ok(f"Зависимости установлены в {BACKEND_DIR / '.venv'}")
+
+    uvicorn_bin = BACKEND_DIR / ".venv" / "bin" / "uvicorn"
+    if not uvicorn_bin.exists():
+        fail(f"uvicorn не найден после uv sync: {uvicorn_bin}")
+    ok(f"uvicorn: {uvicorn_bin}")
+    return str(uvicorn_bin)
+
+
+def install_service(config: dict, uvicorn_bin: str):
+    step(4, 5, "Сохранение конфигурации")
+    write_secrets(config)
+
+    step(5, 5, "Установка systemd-сервиса")
 
     port = config["PORT"]
     unit = textwrap.dedent(f"""\
@@ -161,7 +190,7 @@ def install_service(config: dict):
         Type=simple
         User=root
         WorkingDirectory={BACKEND_DIR}
-        ExecStart={BACKEND_DIR}/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port {port}
+        ExecStart={uvicorn_bin} app.main:app --host 0.0.0.0 --port {port}
         Restart=always
         RestartSec=5
         EnvironmentFile={SECRETS_FILE}
@@ -230,8 +259,8 @@ def main():
 
     config = ask_config()
     config = generate_secrets(config)
-    write_secrets(config)
-    install_service(config)
+    uvicorn_bin = sync_venv()
+    install_service(config, uvicorn_bin)
     show_summary(config)
 
 
