@@ -1308,6 +1308,9 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [x] **Webapp: connect to real API** — usePCs (poll 5s), usePrograms, API client with Bearer JWT, PCGrid renders real PC objects
 - [x] **Webapp auth: one-time link via bot** — /start generates token (10 min), link opens webapp, token exchanged for JWT (stored in localStorage)
 - [x] Telegram bot: /start (one-time login link), /status, /add_teacher
+- [x] **mDNS discovery** — backend announces `classroom.local` via zeroconf; installer defaults to `ws://classroom.local:8082/ws`
+- [x] **Auto webapp URL** — WEBAPP_URL auto-detected from LAN IP if not set in .env
+- [x] **Agent network resilience** — instant reconnect on NetworkAddressChanged (VPN toggle)
 - *Groups: NO (single room for MVP)*
 
 ### v1 — full school, CI/CD
