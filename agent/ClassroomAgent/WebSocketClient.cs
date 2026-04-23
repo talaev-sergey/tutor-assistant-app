@@ -24,23 +24,47 @@ public class WebSocketClient(
     public async Task RunAsync(CancellationToken ct)
     {
         var attempt = 0;
-        while (!ct.IsCancellationRequested)
+        TaskCompletionSource<bool>? networkChangedTcs = null;
+
+        NetworkAddressChangedEventHandler networkHandler = (_, _) =>
+            networkChangedTcs?.TrySetResult(true);
+
+        NetworkChange.NetworkAddressChanged += networkHandler;
+        try
         {
-            try
+            while (!ct.IsCancellationRequested)
             {
-                await ConnectAndRunAsync(ct);
-                attempt = 0;
+                try
+                {
+                    await ConnectAndRunAsync(ct);
+                    attempt = 0;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    var delay = GetReconnectDelay(attempt++);
+                    logger.LogWarning("Disconnected: {Message}. Reconnect in {Delay:F1}s", ex.Message, delay.TotalSeconds);
+
+                    networkChangedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    var delayTask = Task.Delay(delay, ct);
+                    var networkTask = networkChangedTcs.Task;
+                    var completed = await Task.WhenAny(delayTask, networkTask);
+                    networkChangedTcs = null;
+
+                    if (completed == networkTask)
+                    {
+                        logger.LogInformation("Network change detected, reconnecting immediately");
+                        attempt = 0;
+                    }
+                }
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                var delay = GetReconnectDelay(attempt++);
-                logger.LogWarning("Disconnected: {Message}. Reconnect in {Delay:F1}s", ex.Message, delay.TotalSeconds);
-                await Task.Delay(delay, ct);
-            }
+        }
+        finally
+        {
+            NetworkChange.NetworkAddressChanged -= networkHandler;
         }
     }
 

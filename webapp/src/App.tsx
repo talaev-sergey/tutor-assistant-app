@@ -51,7 +51,7 @@ export default function App() {
   const { user, loading: authLoading, error: authError, loginWithToken, restoreSession } = useAuth();
   const tokenConsumedRef = useRef(false);
   const { pcs, loading: pcsLoading, error: pcsError, refresh } = usePCs(user ? 5000 : 0);
-  const { programs } = usePrograms();
+  const { programs } = usePrograms(!!user);
 
   const [page, setPage] = useState<Page>('list');
   const [target, setTarget] = useState<Target>('all');
@@ -205,7 +205,14 @@ export default function App() {
     }
   }
 
-  if (authLoading) return null;
+  if (authLoading) return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', background: '#0f0f13', color: '#555', fontSize: 14,
+    }}>
+      Вход…
+    </div>
+  );
 
   if (!user) {
     return (

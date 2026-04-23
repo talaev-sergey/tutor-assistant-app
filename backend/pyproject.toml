@@ -13,6 +13,7 @@ dependencies = [
     "packaging>=24.0",
     "python-telegram-bot[ext]>=21.0",
     "pyjwt>=2.8",
+    "zeroconf>=0.148.0",
 ]
 
 [project.optional-dependencies]

@@ -30,6 +30,7 @@ export function usePCs(pollInterval = 5000) {
   }, []);
 
   useEffect(() => {
+    if (pollInterval === 0) return;
     mountedRef.current = true;
     fetchPCs();
     const id = setInterval(fetchPCs, pollInterval);

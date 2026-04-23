@@ -33,7 +33,7 @@ class TokenLoginRequest(BaseModel):
 
 def create_jwt(telegram_id: int) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours)
-    return jwt.encode({"sub": telegram_id, "exp": exp}, settings.jwt_secret, algorithm="HS256")
+    return jwt.encode({"sub": str(telegram_id), "exp": exp}, settings.jwt_secret, algorithm="HS256")
 
 
 def _make_auth_response(user: User) -> AuthResponse:

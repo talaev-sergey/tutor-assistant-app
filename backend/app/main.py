@@ -1,11 +1,14 @@
 import logging
+import socket
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
+from zeroconf import ServiceInfo
+from zeroconf.asyncio import AsyncZeroconf
 
-from .config import settings
+from .config import settings, _detect_lan_ip
 from .database import engine, create_db_and_tables
 from .api import health, pcs, commands, tokens, programs, groups, auth
 from .ws.handlers import handle_websocket
@@ -19,10 +22,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _start_mdns() -> tuple[AsyncZeroconf, ServiceInfo] | None:
+    try:
+        local_ip = _detect_lan_ip()
+        info = ServiceInfo(
+            "_classroom._tcp.local.",
+            "Classroom Control._classroom._tcp.local.",
+            addresses=[socket.inet_aton(local_ip)],
+            port=8082,
+            server="classroom.local.",
+        )
+        azc = AsyncZeroconf()
+        await azc.async_register_service(info)
+        logger.info("mDNS: classroom.local → %s", local_ip)
+        return azc, info
+    except Exception as e:
+        logger.warning("mDNS failed to start: %s", e)
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
     logger.info("Classroom Control Backend started (version %s)", settings.app_version)
+
+    mdns = await _start_mdns()
 
     bot_app = None
     if settings.bot_token:
@@ -39,6 +63,11 @@ async def lifespan(app: FastAPI):
         logger.info("BOT_TOKEN not set — Telegram bot disabled")
 
     yield
+
+    if mdns:
+        azc, info = mdns
+        await azc.async_unregister_service(info)
+        await azc.async_close()
 
     if bot_app:
         await bot_app.updater.stop()

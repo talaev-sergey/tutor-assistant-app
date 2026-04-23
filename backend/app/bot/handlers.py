@@ -3,7 +3,7 @@ from sqlmodel import select
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from ..config import settings
+from ..config import settings, get_webapp_url
 from ..database import get_session
 from ..models import PC, User
 from ..services.login_token_service import create_login_token
@@ -27,14 +27,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    if not settings.webapp_url:
-        await update.message.reply_text(
-            f"👋 Привет, {user.full_name}!\n\nWEBAPP_URL не настроен. Укажите его в .env."
-        )
-        return
-
     token = create_login_token(user.telegram_id)
-    login_url = f"{settings.webapp_url.rstrip('/')}/?token={token}"
+    login_url = f"{get_webapp_url()}/?token={token}"
 
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("🖥 Войти в Класс-Контроль", url=login_url)

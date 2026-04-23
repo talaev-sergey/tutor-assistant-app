@@ -47,7 +47,7 @@ public class SetupForm : Form
         var panel = new Panel { Location = new Point(0, 70), Width = 500, Height = 220 };
 
         _txtPcName = MakeField(panel, "Имя компьютера:", Environment.MachineName, 20);
-        _txtBackendUrl = MakeField(panel, "Адрес сервера:", "ws://192.168.1.100:8082/ws", 80);
+        _txtBackendUrl = MakeField(panel, "Адрес сервера:", "ws://classroom.local:8082/ws", 80);
 
         // Token row with show/hide
         var lblToken = new Label { Text = "Токен:", Location = new Point(20, 140), AutoSize = true };
