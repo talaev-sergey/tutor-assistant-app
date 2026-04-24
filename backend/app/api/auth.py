@@ -1,13 +1,14 @@
 from datetime import datetime, timezone, timedelta
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import select
 
 from ..config import settings
 from ..database import get_session
 from ..middleware.auth import get_current_user
+from ..middleware.rate_limit import limiter
 from ..models import User
 from ..services.login_token_service import consume_login_token
 
@@ -55,7 +56,8 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/token", response_model=AuthResponse)
-async def auth_by_token(body: TokenLoginRequest):
+@limiter.limit("10/minute")
+async def auth_by_token(request: Request, body: TokenLoginRequest):
     telegram_id = consume_login_token(body.token)
     if not telegram_id:
         raise HTTPException(status_code=401, detail="Ссылка недействительна или устарела")

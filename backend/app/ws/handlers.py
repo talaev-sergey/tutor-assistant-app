@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from ..models import PC, Token, Command, CommandResult, AllowedProgram
 from ..services.token_service import verify_token
 from ..services.update_service import build_update_message
+from ..services.alert_service import send_alert
 from .manager import manager
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,11 @@ async def handle_websocket(websocket: WebSocket, session: Session):
         logger.error("ws error pc_id=%s: %s", pc_id, e)
     finally:
         if pc_id:
+            pc = session.get(PC, pc_id)
+            pc_name = pc.name if pc else f"#{pc_id}"
             await manager.disconnect(pc_id)
             _mark_offline(session, pc_id)
+            await send_alert(f"⚠️ ПК {pc_name} отключился")
 
 
 def _authenticate_token(session: Session, raw_token: str) -> Token | None:
@@ -242,6 +246,13 @@ async def _handle_command_result(session: Session, msg: dict):
         "command_result command_id=%s pc_id=%s success=%s",
         command_uuid, msg.get("pc_id"), msg.get("success"),
     )
+
+    if not msg.get("success"):
+        pc_name = pc.name if pc else f"#{msg.get('pc_id')}"
+        error_detail = msg.get("error") or "неизвестная ошибка"
+        await send_alert(
+            f"❌ Команда {command.command_type} для ПК {pc_name} не выполнена: {error_detail}"
+        )
 
 
 def _handle_log_upload(msg: dict):

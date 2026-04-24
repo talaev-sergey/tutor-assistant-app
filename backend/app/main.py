@@ -11,7 +11,12 @@ from sqlmodel import Session
 from zeroconf import ServiceInfo
 from zeroconf.asyncio import AsyncZeroconf
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
 from .config import settings, _detect_lan_ip
+from .middleware.rate_limit import limiter
 
 WEBAPP_DIST = Path(__file__).resolve().parent.parent.parent / "webapp" / "dist"
 from .database import engine, create_db_and_tables
@@ -19,6 +24,7 @@ from .api import health, pcs, commands, tokens, programs, groups, auth
 from .ws.handlers import handle_websocket
 from .ws.manager import manager
 from .bot.handlers import build_bot_app
+from .services.alert_service import set_bot_app
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -60,6 +66,7 @@ async def lifespan(app: FastAPI):
             await bot_app.initialize()
             await bot_app.start()
             await bot_app.updater.start_polling(allowed_updates=["message"])
+            set_bot_app(bot_app)
             logger.info("Telegram bot started (polling)")
         except Exception as e:
             logger.warning("Telegram bot failed to start: %s", e)
@@ -90,6 +97,10 @@ app = FastAPI(
     version=settings.app_version,
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

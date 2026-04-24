@@ -1,10 +1,11 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import select
 
 from ..database import get_session
 from ..middleware.auth import get_current_user
+from ..middleware.rate_limit import limiter
 from ..models import Command, CommandResult, PC, User
 from ..services.command_dispatcher import dispatch_command
 from ..ws.manager import manager
@@ -54,7 +55,9 @@ class CommandStatusResponse(BaseModel):
 
 
 @router.post("", response_model=CommandResponse, status_code=202)
+@limiter.limit("60/minute")
 async def create_command(
+    request: Request,
     body: CommandRequest,
     current_user: User = Depends(get_current_user),
 ):

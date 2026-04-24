@@ -1,7 +1,7 @@
 # PROJECT MAP — Classroom Control
 
 > Source of truth for all development. Update when architecture changes.  
-> Last updated: 2026-04-22
+> Last updated: 2026-04-24
 
 ---
 
@@ -1325,8 +1325,8 @@ Grep `trace_id` in backend logs + fetch agent logs → complete incident picture
 - [x] GitHub Actions CI/CD (master → prod, deploy window block)
 - [x] Agent self-update (ClassroomUpdater + SHA256; Ed25519 signing pending)
 - [ ] Remote log upload (`upload_logs`)
-- [ ] Telegram admin alerts
-- [ ] Rate limiting
+- [x] Telegram admin alerts
+- [x] Rate limiting
 - [x] Reboot / Shutdown commands (implemented in agent + API)
 
 ### v2

@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/opt/classroom/backend
-ExecStart=/opt/classroom/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8082
+User=user
+WorkingDirectory=/home/user/dev_projects/tutor-assistant-app/backend
+ExecStart=/home/user/dev_projects/tutor-assistant-app/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8082
 Restart=always
 RestartSec=5
 EnvironmentFile=/etc/classroom-control/secrets
