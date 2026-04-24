@@ -1,3 +1,6 @@
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using ClassroomAgent.Commands;
 using ClassroomAgent.Protection;
@@ -36,9 +39,9 @@ public class MessageDispatcher(
             return JsonNode.Parse(cached);
         }
 
-        var (success, error) = await ExecuteAsync(commandType, @params, programs, ct);
+        var (success, error, data) = await ExecuteAsync(commandType, @params, programs, ct);
 
-        var result = BuildResult(commandId, traceId, success, error);
+        var result = BuildResult(commandId, traceId, success, error, data);
         cache.Store(commandId, result.ToJsonString());
 
         logger.LogInformation(
@@ -48,7 +51,10 @@ public class MessageDispatcher(
         return result;
     }
 
-    private async Task<(bool success, string? error)> ExecuteAsync(
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    private async Task<(bool success, string? error, string? data)> ExecuteAsync(
         string commandType,
         JsonObject? @params,
         List<AllowedProgram> programs,
@@ -61,56 +67,89 @@ public class MessageDispatcher(
                 case "lock":
                     _screenLocker.Lock();
                     IsLocked = true;
-                    return (true, null);
+                    return (true, null, null);
 
                 case "unlock":
                     _screenLocker.Unlock();
                     IsLocked = false;
-                    return (true, null);
+                    return (true, null, null);
 
                 case "protect_on":
                     _taskManager.Disable();
                     IsProtected = true;
-                    return (true, null);
+                    return (true, null, null);
 
                 case "protect_off":
                     _taskManager.Enable();
                     IsProtected = false;
-                    return (true, null);
+                    return (true, null, null);
 
                 case "launch":
                     var slugs = @params?["programs"]?.AsArray()
                         .Select(s => s?.GetValue<string>() ?? "")
                         .Where(s => s.Length > 0)
                         .ToList() ?? [];
-                    return await new LaunchCommand(programs).ExecuteAsync(slugs, ct);
+                    var (ls, le) = await new LaunchCommand(programs).ExecuteAsync(slugs, ct);
+                    return (ls, le, null);
 
                 case "reboot":
                     var rDelay = @params?["delay_sec"]?.GetValue<int>() ?? 30;
                     System.Diagnostics.Process.Start("shutdown", $"/r /t {rDelay}");
-                    return (true, null);
+                    return (true, null, null);
 
                 case "shutdown":
                     var sDelay = @params?["delay_sec"]?.GetValue<int>() ?? 30;
                     System.Diagnostics.Process.Start("shutdown", $"/s /t {sDelay}");
-                    return (true, null);
+                    return (true, null, null);
 
                 case "ping":
-                    return (true, null);
+                    return (true, null, null);
+
+                case "screenshot":
+                    var imgData = CaptureScreen();
+                    return (true, null, imgData);
 
                 default:
-                    return (false, $"Unknown command type: {commandType}");
+                    return (false, $"Unknown command type: {commandType}", null);
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Command {Type} failed", commandType);
-            return (false, ex.Message);
+            return (false, ex.Message, null);
         }
     }
 
-    private static JsonNode BuildResult(string commandId, string traceId, bool success, string? error) =>
-        new JsonObject
+    private string CaptureScreen()
+    {
+        var w = GetSystemMetrics(0);
+        var h = GetSystemMetrics(1);
+        using var bmp = new Bitmap(w, h);
+        using var gfx = Graphics.FromImage(bmp);
+        gfx.CopyFromScreen(0, 0, 0, 0, new Size(w, h));
+
+        // Scale down to max 1280px wide to keep payload small
+        Bitmap final = bmp;
+        if (w > 1280)
+        {
+            int newH = (int)(h * 1280.0 / w);
+            final = new Bitmap(bmp, new Size(1280, newH));
+        }
+
+        using var ms = new System.IO.MemoryStream();
+        var jpegEncoder = ImageCodecInfo.GetImageEncoders()
+            .First(e => e.FormatID == ImageFormat.Jpeg.Guid);
+        using var encoderParams = new EncoderParameters(1);
+        encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, 75L);
+        final.Save(ms, jpegEncoder, encoderParams);
+
+        if (!ReferenceEquals(final, bmp)) final.Dispose();
+        return Convert.ToBase64String(ms.ToArray());
+    }
+
+    private static JsonNode BuildResult(string commandId, string traceId, bool success, string? error, string? data = null)
+    {
+        var obj = new JsonObject
         {
             ["type"] = "command_result",
             ["protocol_version"] = 1,
@@ -121,4 +160,8 @@ public class MessageDispatcher(
             ["error"] = error,
             ["executed_at"] = DateTime.UtcNow.ToString("O"),
         };
+        if (data != null)
+            obj["data"] = data;
+        return obj;
+    }
 }

@@ -31,3 +31,4 @@ class CommandResult(SQLModel, table=True):
     success: bool
     error: str | None = None
     executed_at: datetime | None = None
+    result_data: str | None = None

@@ -225,6 +225,7 @@ async def _handle_command_result(session: Session, msg: dict):
         success=msg.get("success", False),
         error=msg.get("error"),
         executed_at=datetime.utcnow(),
+        result_data=msg.get("data"),
     )
     session.add(result)
 

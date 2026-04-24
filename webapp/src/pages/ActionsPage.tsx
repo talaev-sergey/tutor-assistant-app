@@ -1,4 +1,4 @@
-import { ChevronLeft, Monitor, Zap, FolderOpen, ShieldCheck, Lock, RotateCw, Power } from 'lucide-react';
+import { ChevronLeft, Monitor, Zap, FolderOpen, ShieldCheck, Lock, RotateCw, Power, Camera } from 'lucide-react';
 import type { PC, Target } from '../api/types';
 
 interface ActionsPageProps {
@@ -117,7 +117,19 @@ export default function ActionsPage({ target, pcs, protectedPCs, lockedPCs, onBa
           </button>
         </div>
 
-        <div className="action-row cols-2 fade-up-4">
+        {typeof target === 'number' && (
+          <div className="action-row fade-up-4">
+            <button className="action-btn screenshot full-width" onClick={() => onAction('screenshot')}>
+              <div className="action-icon"><Camera size={24} /></div>
+              <div className="action-text">
+                <div className="action-title">Скриншот</div>
+                <div className="action-sub">Снимок экрана ученика</div>
+              </div>
+            </button>
+          </div>
+        )}
+
+        <div className="action-row cols-2 fade-up-5">
           <button className="action-btn reboot" onClick={() => onAction('reboot')}>
             <div className="action-icon"><RotateCw size={24} /></div>
             <div className="action-text">

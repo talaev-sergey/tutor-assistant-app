@@ -14,7 +14,7 @@ router = APIRouter()
 
 VALID_COMMAND_TYPES = {
     "lock", "unlock", "protect_on", "protect_off",
-    "launch", "reboot", "shutdown", "upload_logs", "ping",
+    "launch", "reboot", "shutdown", "upload_logs", "ping", "screenshot",
 }
 VALID_TARGET_TYPES = {"single", "group", "all", "multi"}
 
@@ -41,6 +41,7 @@ class CommandResultItem(BaseModel):
     success: bool
     error: str | None
     executed_at: datetime | None
+    result_data: str | None = None
 
 
 class CommandStatusResponse(BaseModel):
@@ -114,6 +115,7 @@ async def get_command(
                 success=r.success,
                 error=r.error,
                 executed_at=r.executed_at,
+                result_data=r.result_data,
             ))
 
         success_count = sum(1 for r in results if r.success)

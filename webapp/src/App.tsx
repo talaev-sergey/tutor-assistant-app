@@ -12,7 +12,7 @@ import { usePrograms } from './hooks/usePrograms';
 import { useAuth } from './hooks/useAuth';
 import { useGroups } from './hooks/useGroups';
 import { apiFetch } from './api/client';
-import type { PC, Program, CommandRequest, Target } from './api/types';
+import type { PC, Program, CommandRequest, CommandResponse, CommandStatus, Target } from './api/types';
 
 const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME ?? '';
 
@@ -62,6 +62,8 @@ export default function App() {
   const [multiMode, setMultiMode] = useState(false);
   const [selectedPCs, setSelectedPCs] = useState<Set<number>>(new Set());
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
+  const [screenshotData, setScreenshotData] = useState<{ name: string; base64: string } | null>(null);
+  const [screenshotLoading, setScreenshotLoading] = useState(false);
 
   const onlinePCIds = useMemo(() => pcs.filter(p => p.online).map(p => p.id), [pcs]);
   const protectedPCs = useMemo(() => new Set(pcs.filter(p => p.protected).map(p => p.id)), [pcs]);
@@ -161,9 +163,47 @@ export default function App() {
     }
   }
 
+  async function handleScreenshot() {
+    if (typeof target !== 'number') return;
+    const pcName = pcs.find(p => p.id === target)?.name ?? `#${target}`;
+    setScreenshotLoading(true);
+    hapticImpact('medium');
+    try {
+      const req: CommandRequest = { command_type: 'screenshot', target_type: 'single', target_pc_id: target };
+      const res = await apiFetch<CommandResponse>('/api/commands', { method: 'POST', body: JSON.stringify(req) });
+      const commandId = res.command_id;
+
+      // Poll until done or timeout (10s)
+      const deadline = Date.now() + 10_000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 800));
+        const status = await apiFetch<CommandStatus>(`/api/commands/${commandId}`);
+        const result = status.results[0];
+        if (result?.result_data) {
+          setScreenshotData({ name: pcName, base64: result.result_data });
+          setScreenshotLoading(false);
+          return;
+        }
+        if (result && !result.success) {
+          showToast(`⚠️ Скриншот не получен: ${result.error ?? 'ошибка'}`);
+          setScreenshotLoading(false);
+          return;
+        }
+      }
+      showToast('⚠️ Таймаут — агент не ответил');
+    } catch {
+      showToast('⚠️ Ошибка запроса скриншота');
+    }
+    setScreenshotLoading(false);
+  }
+
   async function handleAction(action: string) {
     if (action === 'launch') {
       navigateTo('programs');
+      return;
+    }
+    if (action === 'screenshot') {
+      handleScreenshot();
       return;
     }
 
@@ -319,6 +359,37 @@ export default function App() {
       )}
 
       <Toast toast={toast} />
+
+      {screenshotLoading && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, flexDirection: 'column', gap: 12, color: '#ccc', fontSize: 14,
+        }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #444', borderTopColor: '#aaa', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          Получение скриншота…
+        </div>
+      )}
+
+      {screenshotData && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', zIndex: 1000, padding: 16, gap: 10,
+          }}
+          onClick={() => setScreenshotData(null)}
+        >
+          <div style={{ color: '#ccc', fontSize: 13 }}>{screenshotData.name}</div>
+          <img
+            src={`data:image/jpeg;base64,${screenshotData.base64}`}
+            alt="screenshot"
+            style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 80px)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.6)' }}
+            onClick={e => e.stopPropagation()}
+          />
+          <div style={{ color: '#666', fontSize: 12 }}>Нажмите за пределами для закрытия</div>
+        </div>
+      )}
     </>
   );
 }

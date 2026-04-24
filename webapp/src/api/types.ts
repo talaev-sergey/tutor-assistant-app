@@ -51,3 +51,23 @@ export interface CommandResponse {
   status: string;
   target_count: number;
 }
+
+export interface CommandResultItem {
+  pc_id: number;
+  pc_name: string;
+  success: boolean;
+  error: string | null;
+  executed_at: string | null;
+  result_data: string | null;
+}
+
+export interface CommandStatus {
+  command_id: string;
+  command_type: string;
+  status: string;
+  results: CommandResultItem[];
+  success_count: number;
+  fail_count: number;
+  created_at: string;
+  completed_at: string | null;
+}
