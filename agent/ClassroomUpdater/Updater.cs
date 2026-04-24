@@ -16,13 +16,16 @@ public class Updater(int servicePid, string newPath, string serviceName)
         Log($"ClassroomUpdater started: pid={servicePid} new={newPath} service={serviceName}");
 
         // 1. Wait for the old agent process to exit
-        if (!await WaitForProcessExitAsync(servicePid, timeoutSec: 10))
+        if (!await WaitForProcessExitAsync(servicePid, timeoutSec: 15))
         {
             Log("Process did not exit in time, killing...");
             try { Process.GetProcessById(servicePid).Kill(); } catch { }
-            await Task.Delay(1000);
+            await Task.Delay(2000);
         }
         Log("Old agent process exited");
+
+        // Give SCM time to fully release the binary and mark service Stopped
+        await Task.Delay(3000);
 
         // 2. Backup
         try
@@ -49,9 +52,12 @@ public class Updater(int servicePid, string newPath, string serviceName)
         catch (Exception ex)
         {
             Log($"Copy failed: {ex.Message} — rolling back");
-            Rollback(backupExe, agentExe, serviceName);
+            await RollbackAsync(backupExe, agentExe);
             return 1;
         }
+
+        // Give Windows Defender time to scan the new binary before SCM touches it
+        await Task.Delay(5000);
 
         // 4. Start service
         try
@@ -62,7 +68,7 @@ public class Updater(int servicePid, string newPath, string serviceName)
         catch (Exception ex)
         {
             Log($"Service start failed: {ex.Message} — rolling back");
-            Rollback(backupExe, agentExe, serviceName);
+            await RollbackAsync(backupExe, agentExe);
             return 1;
         }
 
@@ -73,16 +79,68 @@ public class Updater(int servicePid, string newPath, string serviceName)
         if (!IsServiceRunning(serviceName))
         {
             Log("Service crashed — rolling back");
-            Rollback(backupExe, agentExe, serviceName);
+            await RollbackAsync(backupExe, agentExe);
             return 1;
         }
 
         Log("Update successful!");
-
-        // Clean up pending file
         try { File.Delete(newPath); } catch { }
-
         return 0;
+    }
+
+    private static async Task RollbackAsync(string backupExe, string agentExe)
+    {
+        Log("Starting rollback...");
+        if (!File.Exists(backupExe))
+        {
+            Log("No backup found, cannot rollback");
+            return;
+        }
+
+        // Stop service and kill any lingering processes before overwriting
+        StopServiceSafe();
+        await Task.Delay(3000);
+
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            try
+            {
+                File.Copy(backupExe, agentExe, overwrite: true);
+                Log("Rollback binary restored");
+                break;
+            }
+            catch (Exception ex)
+            {
+                Log($"Rollback copy attempt {attempt} failed: {ex.Message}");
+                if (attempt < 5) await Task.Delay(2000);
+            }
+        }
+
+        try
+        {
+            StartService(ServiceName(agentExe));
+            Log("Rollback: service started");
+        }
+        catch (Exception ex)
+        {
+            Log($"Rollback: service start failed: {ex.Message}");
+        }
+    }
+
+    private static string ServiceName(string agentExe) => "ClassroomAgent";
+
+    private static void StopServiceSafe()
+    {
+        try
+        {
+            using var svc = new ServiceController("ClassroomAgent");
+            if (svc.Status == ServiceControllerStatus.Running)
+            {
+                svc.Stop();
+                svc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+            }
+        }
+        catch { }
     }
 
     private static async Task<bool> WaitForProcessExitAsync(int pid, int timeoutSec)
@@ -97,7 +155,7 @@ public class Updater(int servicePid, string newPath, string serviceName)
         }
         catch (ArgumentException)
         {
-            return true; // process already gone
+            return true;
         }
     }
 
@@ -107,7 +165,7 @@ public class Updater(int servicePid, string newPath, string serviceName)
         if (svc.Status != ServiceControllerStatus.Running)
         {
             svc.Start();
-            svc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
+            svc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60));
         }
     }
 
@@ -119,28 +177,6 @@ public class Updater(int servicePid, string newPath, string serviceName)
             return svc.Status == ServiceControllerStatus.Running;
         }
         catch { return false; }
-    }
-
-    private static void Rollback(string backupExe, string agentExe, string serviceName)
-    {
-        Log("Starting rollback...");
-        try
-        {
-            if (File.Exists(backupExe))
-            {
-                File.Copy(backupExe, agentExe, overwrite: true);
-                StartService(serviceName);
-                Log("Rollback successful");
-            }
-            else
-            {
-                Log("No backup found, cannot rollback");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log($"Rollback failed: {ex.Message}");
-        }
     }
 
     private static void Log(string msg)
