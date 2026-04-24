@@ -19,6 +19,14 @@ dotnet publish ClassroomUpdater/ClassroomUpdater.csproj $FLAGS
 echo "Building ClassroomInstaller..."
 dotnet publish ClassroomInstaller/ClassroomInstaller.csproj $FLAGS
 
+# Bundle Bonjour installer if present next to publish.sh
+if [ -f "BonjourSetup.exe" ]; then
+    cp BonjourSetup.exe "$RELEASE_DIR/"
+    echo "Bundled BonjourSetup.exe"
+else
+    echo "BonjourSetup.exe not found — installer will download it at runtime"
+fi
+
 echo ""
 echo "=== Release build complete ==="
 printf "  %-30s %8s MB\n" "ClassroomAgent.exe"   "$(du -m $RELEASE_DIR/ClassroomAgent.exe  | cut -f1)"
