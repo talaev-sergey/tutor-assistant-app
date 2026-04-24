@@ -1,113 +1,42 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+**Classroom Control** — Telegram Mini App для управления школьными ПК через локальную сеть WebSocket.  
+Полная спецификация: `docs/PROJECT_MAP.md`
 
-## Project
+## Стек
 
-**Classroom Control** — Telegram Mini App for remote classroom PC management.  
-Teacher controls school PCs (lock/unlock, launch programs, protect) via local network WebSocket.
+- `backend/` — FastAPI + SQLModel + Alembic (Python 3.12, uv)
+- `webapp/` — React 19 + Vite + Tailwind (Telegram Mini App)
+- `agent/` — C# .NET 8 (ClassroomAgent, ClassroomUpdater, ClassroomInstaller)
+- `deploy/` — systemd, deploy-скрипты
 
-Full spec: `docs/PROJECT_MAP.md`
-
-## Repository Structure
-
-```
-backend/    FastAPI + SQLModel backend (Python 3.12, uv)
-webapp/     Telegram Mini App UI (React 19 + Vite + Tailwind)
-agent/      C# .NET 8 solution (3 projects)
-deploy/     systemd units, nginx configs, deploy/update scripts
-docs/       Architecture spec (PROJECT_MAP.md)
-```
-
-## Backend Commands
-
-Run from `backend/` directory (uses `uv`):
+## Команды
 
 ```bash
-uv sync                              # Install dependencies
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8082 --reload  # Dev server (LAN-accessible)
-uv run alembic upgrade head          # Apply migrations
-uv run alembic revision --autogenerate -m "description"  # New migration
-uv run pytest                        # Run tests
+# Backend (из backend/)
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8082 --reload
+uv run alembic upgrade head
 
-# Bootstrap first admin + create PC token (no webapp needed):
-uv run python scripts/create_token.py --telegram-id 123456789 --name "PC-01"
-uv run python scripts/create_token.py --name "PC-02"
+# Webapp (из webapp/)
+pnpm dev        # :5173, прокси /api → :8082
+pnpm build
 
-# Seed default programs into DB:
-uv run python scripts/seed_programs.py
+# Agent (из agent/)
+./publish.sh    # кросс-компиляция win-x64 → release/
 ```
 
-Environment: copy `backend/.env.example` → `backend/.env` and fill in values.
+## Ключевая архитектура
 
-## Webapp Commands
+- Бэкенд на машине учителя, агенты подключаются наружу через WebSocket (обход NAT школы)
+- Порт 8082 (dev и prod на локальной сети)
+- Auth: Telegram initData HMAC-SHA256 (webapp) / Bearer bcrypt (агенты)
+- Автообновление: heartbeat → version mismatch → `update_available` → SHA256+Ed25519 verify → ClassroomUpdater
+- mDNS: бэкенд анонсирует `classroom.local`, агент подключается по умолчанию к `ws://classroom.local:8082/ws`
+- Бэкенд раздаёт `webapp/dist/` через StaticFiles (nginx не нужен)
+- `WEBAPP_PORT` в .env: 5173 для dev, 8082 для prod (installer пишет в `/etc/classroom-control/secrets`)
 
-Run from `webapp/` directory:
+## Перед коммитом
 
-```bash
-pnpm install    # Install dependencies
-pnpm dev        # Vite dev server on :5173 (proxies /api → backend :8082)
-pnpm build      # Production build → dist/
-pnpm typecheck  # TypeScript check
-```
-
-Set `VITE_API_URL=http://<backend-host>:8082` if backend is not on localhost.
-
-## Agent Commands
-
-Run from `agent/` directory:
-
-```bash
-# Linux (cross-compile to win-x64):
-./publish.sh                         # Build all 3 projects → release/
-
-# Windows (requires .NET 8 SDK):
-.\publish.ps1                        # Build all 3 projects → release/
-```
-
-Output: `release/ClassroomSetup.exe`, `ClassroomAgent.exe`, `ClassroomUpdater.exe`
-
-To install on a school PC (as Administrator):
-```
-ClassroomSetup.exe   # GUI installer — enter PcName, BackendUrl, Token
-```
-
-## Key Architecture Points
-
-- **Local network**: backend runs on teacher machine, agents connect outbound via WebSocket
-- **No VPS needed**: school PCs (static IPs in router) → WebSocket → local backend
-- **Dev port**: 8082 (Apache occupies 8081 on VPS if using Fornex)
-- **Prod port**: 8080
-- **Auth**: Telegram initData HMAC-SHA256 for webapp; Bearer token (bcrypt) for agents
-- **Auto-update**: backend detects version mismatch on heartbeat → sends `update_available` → agent downloads, verifies SHA256, runs ClassroomUpdater
-
-## Environment Variables (backend/.env)
-
-| Variable | Example | Purpose |
-|---|---|---|
-| `DATABASE_URL` | `sqlite:////opt/classroom-dev/backend/app-dev.db` | SQLite DB (absolute path) |
-| `BOT_TOKEN` | `7123456789:AAH...` | Telegram bot token (from @BotFather) |
-| `ADMIN_TELEGRAM_ID` | `123456789` | Admin Telegram ID (from @userinfobot) |
-| `APP_VERSION` | `1.0.0` | Shown in /healthz |
-| `DEBUG` | `false` | SQLAlchemy echo + debug logging |
-
-## Deploy
-
-```bash
-# Update dev host (Linux)
-./deploy/scripts/update_host.sh dev
-
-# Update prod host (Linux)
-./deploy/scripts/update_host.sh prod
-
-# Update host (Windows)
-.\deploy\scripts\update_host.ps1
-```
-
-## Workflow (before every commit)
-
-After finishing any change to the project, before creating a commit:
-
-1. Check `.knowledge/index.md` and `.knowledge/topics/` — update only if information is outdated or missing. Do not change what is still accurate.
-2. Check `docs/PROJECT_MAP.md` — update the MVP/v1 checklist and any structural sections that changed. Do not rewrite sections that are still correct.
-3. Then commit.
+1. Проверить `.knowledge/index.md` — обновить только устаревшее
+2. Проверить `docs/PROJECT_MAP.md` — обновить чеклист и изменившиеся разделы
+3. Закоммитить

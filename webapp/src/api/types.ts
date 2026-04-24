@@ -10,6 +10,14 @@ export interface PC {
   group_id: number | null;
 }
 
+export type Target = number | number[] | 'all' | { group_id: number };
+
+export interface Group {
+  id: number;
+  name: string;
+  pc_count: number;
+}
+
 export interface Program {
   id: number;
   slug: string;
@@ -21,9 +29,10 @@ export interface Program {
 
 export interface CommandRequest {
   command_type: string;
-  target_type: 'single' | 'multi' | 'all';
+  target_type: 'single' | 'multi' | 'all' | 'group';
   target_pc_id?: number;
   target_pc_ids?: number[];
+  target_group_id?: number;
   params?: Record<string, unknown>;
 }
 

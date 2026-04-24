@@ -1,7 +1,5 @@
 import { ChevronLeft, Monitor, Zap, FolderOpen, ShieldCheck, Lock, RotateCw, Power } from 'lucide-react';
-import type { PC } from '../api/types';
-
-type Target = number | number[] | 'all';
+import type { PC, Target } from '../api/types';
 
 interface ActionsPageProps {
   target: Target;
@@ -18,12 +16,17 @@ function getTargetLabel(target: Target, pcs: PC[]): string {
     const names = target.map(id => pcs.find(p => p.id === id)?.name ?? `#${id}`);
     return names.join(', ');
   }
+  if (typeof target === 'object') return 'Группа';
   return pcs.find(p => p.id === target)?.name ?? `#${target}`;
 }
 
 function getTargetMeta(target: Target, pcs: PC[]): { text: string; isAll: boolean } {
   if (target === 'all') return { text: pcs.filter(p => p.online).length + ' компьютеров', isAll: true };
   if (Array.isArray(target)) return { text: target.length + ' компьютеров', isAll: true };
+  if (typeof target === 'object') {
+    const count = pcs.filter(p => p.group_id === target.group_id && p.online).length;
+    return { text: count + ' онлайн', isAll: true };
+  }
   const pc = pcs.find(p => p.id === target);
   return { text: pc?.online ? 'онлайн' : 'офлайн', isAll: false };
 }
@@ -31,11 +34,12 @@ function getTargetMeta(target: Target, pcs: PC[]): { text: string; isAll: boolea
 function getTargetPCIds(target: Target, pcs: PC[]): number[] {
   if (target === 'all') return pcs.filter(p => p.online).map(p => p.id);
   if (Array.isArray(target)) return target;
+  if (typeof target === 'object') return pcs.filter(p => p.group_id === target.group_id).map(p => p.id);
   return [target];
 }
 
 function TargetIcon({ target, size = 18 }: { target: Target; size?: number }) {
-  if (target === 'all' || Array.isArray(target)) return <Zap size={size} fill="currentColor" />;
+  if (target === 'all' || Array.isArray(target) || typeof target === 'object') return <Zap size={size} fill="currentColor" />;
   return <Monitor size={size} />;
 }
 

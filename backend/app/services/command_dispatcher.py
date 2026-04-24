@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from sqlmodel import Session, select
 
-from ..models import Command, CommandResult, PC, Group, PCGroupMembership
+from ..models import Command, CommandResult, PC
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +63,8 @@ def _resolve_targets(
     if target_type == "multi" and target_pc_ids:
         return target_pc_ids
     if target_type == "group" and target_group_id:
-        memberships = session.exec(
-            select(PCGroupMembership).where(PCGroupMembership.group_id == target_group_id)
-        ).all()
-        return [m.pc_id for m in memberships]
+        pcs = session.exec(select(PC).where(PC.group_id == target_group_id)).all()
+        return [pc.id for pc in pcs if pc.id]
     if target_type == "all":
         pcs = session.exec(select(PC)).all()
         return [pc.id for pc in pcs if pc.id]

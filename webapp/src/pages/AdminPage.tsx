@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Trash2, Plus, Copy, Check, ArrowLeft } from 'lucide-react';
 import { apiFetch } from '../api/client';
-import type { PC } from '../api/types';
+import type { PC, Group } from '../api/types';
 import { useTelegram } from '../hooks/useTelegram';
 
 interface AdminPageProps {
   pcs: PC[];
+  groups: Group[];
   onBack: () => void;
   onRefreshPCs: () => void;
+  onRefreshGroups: () => void;
   showToast: (msg: string) => void;
 }
 
@@ -23,7 +25,7 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: AdminPageProps) {
+export default function AdminPage({ pcs, groups, onBack, onRefreshPCs, onRefreshGroups, showToast }: AdminPageProps) {
   const { showConfirm } = useTelegram();
 
   const [renaming, setRenaming] = useState<number | null>(null);
@@ -34,6 +36,10 @@ export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: Admi
   const [newTokenResult, setNewTokenResult] = useState<NewTokenResult | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const [newGroupName, setNewGroupName] = useState('');
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [showGroupForm, setShowGroupForm] = useState(false);
 
   async function handleDeletePC(pc: PC) {
     showConfirm(`Удалить ${pc.name}?\nАгент потеряет доступ.`, async (ok) => {
@@ -65,6 +71,18 @@ export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: Admi
     }
   }
 
+  async function handleAssignGroup(pc: PC, groupId: number | null) {
+    try {
+      await apiFetch(`/api/pcs/${pc.id}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ group_id: groupId }),
+      });
+      onRefreshPCs();
+    } catch {
+      showToast('⚠️ Ошибка назначения группы');
+    }
+  }
+
   async function handleCreateToken() {
     const name = newTokenName.trim();
     if (!name) return;
@@ -82,6 +100,40 @@ export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: Admi
     } finally {
       setCreatingToken(false);
     }
+  }
+
+  async function handleCreateGroup() {
+    const name = newGroupName.trim();
+    if (!name) return;
+    setCreatingGroup(true);
+    try {
+      await apiFetch('/api/groups', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      });
+      setNewGroupName('');
+      setShowGroupForm(false);
+      onRefreshGroups();
+      showToast(`✅ Группа «${name}» создана`);
+    } catch {
+      showToast('⚠️ Ошибка создания группы');
+    } finally {
+      setCreatingGroup(false);
+    }
+  }
+
+  async function handleDeleteGroup(group: Group) {
+    showConfirm(`Удалить группу «${group.name}»?\nПК останутся, но выйдут из группы.`, async (ok) => {
+      if (!ok) return;
+      try {
+        await apiFetch(`/api/groups/${group.id}`, { method: 'DELETE' });
+        onRefreshGroups();
+        onRefreshPCs();
+        showToast(`🗑 Группа «${group.name}» удалена`);
+      } catch {
+        showToast('⚠️ Ошибка удаления группы');
+      }
+    });
   }
 
   function copyToken(token: string) {
@@ -116,7 +168,6 @@ export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: Admi
         </div>
       </div>
 
-      {/* New token banner */}
       {newTokenResult && (
         <div style={styles.tokenBanner}>
           <div style={styles.tokenBannerTitle}>
@@ -133,7 +184,55 @@ export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: Admi
         </div>
       )}
 
-      {/* PC section */}
+      {/* Groups section */}
+      <div style={styles.sectionTitle}>
+        Группы
+        <button style={styles.addBtn} onClick={() => setShowGroupForm(v => !v)}>
+          <Plus size={16} />
+          <span>Добавить</span>
+        </button>
+      </div>
+
+      {showGroupForm && (
+        <div style={styles.createForm}>
+          <input
+            autoFocus
+            style={styles.createInput}
+            placeholder="Напр. Ряд 1"
+            value={newGroupName}
+            onChange={e => setNewGroupName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleCreateGroup(); if (e.key === 'Escape') setShowGroupForm(false); }}
+          />
+          <button
+            style={{ ...styles.createBtn, opacity: creatingGroup || !newGroupName.trim() ? 0.5 : 1 }}
+            disabled={creatingGroup || !newGroupName.trim()}
+            onClick={handleCreateGroup}
+          >
+            {creatingGroup ? '…' : 'Создать'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ ...styles.list, marginBottom: 20 }}>
+        {groups.length === 0 && !showGroupForm && (
+          <div style={styles.empty}>Нет групп. Создай группу, чтобы фильтровать ПК по рядам или кабинетам.</div>
+        )}
+        {groups.map(g => (
+          <div key={g.id} style={styles.card}>
+            <div style={styles.cardMain}>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--hint)', marginLeft: 8 }}>{g.pc_count} ПК</span>
+              </div>
+              <button style={styles.deleteBtn} onClick={() => handleDeleteGroup(g)}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* PCs section */}
       <div style={styles.sectionTitle}>
         Компьютеры
         <button style={styles.addBtn} onClick={() => setShowCreateForm(v => !v)}>
@@ -191,9 +290,23 @@ export default function AdminPage({ pcs, onBack, onRefreshPCs, showToast }: Admi
                   {pc.ip_local ?? '—'} · v{pc.agent_version ?? '?'} · {formatDate(pc.last_seen)}
                 </div>
               </div>
-              <button style={styles.deleteBtn} onClick={() => handleDeletePC(pc)}>
-                <Trash2 size={16} />
-              </button>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {groups.length > 0 && (
+                  <select
+                    style={styles.groupSelect}
+                    value={pc.group_id ?? ''}
+                    onChange={e => handleAssignGroup(pc, e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Без группы</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                )}
+                <button style={styles.deleteBtn} onClick={() => handleDeletePC(pc)}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -280,6 +393,16 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     flexShrink: 0,
+  },
+  groupSelect: {
+    background: 'var(--bg3)',
+    border: 'none',
+    borderRadius: 8,
+    color: 'var(--text)',
+    fontSize: 12,
+    padding: '6px 8px',
+    cursor: 'pointer',
+    maxWidth: 110,
   },
   renameInput: {
     background: 'var(--bg3)',

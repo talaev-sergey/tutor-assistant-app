@@ -1,67 +1,35 @@
-# Project Wiki Index — Classroom Control
+# Project Wiki — Classroom Control
 
-## Summary
+Telegram Mini App для управления школьными ПК через локальную сеть WebSocket.  
+Полная спецификация: `docs/PROJECT_MAP.md`
 
-Telegram Mini App for remote classroom PC management.  
-Teacher controls school PCs (lock/unlock, launch programs, protect) via **local network** WebSocket.
+## Статус (2026-04-24) — MVP полностью готов
 
-Full architecture spec: `docs/PROJECT_MAP.md`
-
-## Implementation Status (2026-04-24)
-
-| Component | Status |
-|---|---|
-| Backend (FastAPI + SQLModel + Alembic) | ✅ MVP done |
-| WebSocket manager + handlers | ✅ MVP done |
-| API endpoints (pcs/commands/tokens/programs) | ✅ MVP done |
-| JWT + one-time link auth | ✅ done |
-| Windows Agent (C# .NET 8 Service) | ✅ MVP done |
-| Agent auto-update (ClassroomUpdater) | ✅ done |
-| GUI installer (ClassroomSetup.exe) | ✅ done |
-| Linux host installer (install_host.py) | ✅ done |
-| Deploy scripts (systemd, nginx, deploy.sh) | ✅ done |
-| GitHub Actions CI/CD | ✅ done |
-| Webapp connected to real API | ✅ done |
-| Webapp served by backend (StaticFiles) | ✅ done |
-| Telegram bot commands | ✅ done |
-| Bot /new_token command | ✅ done |
-| Webapp Admin page (PC management) | ✅ done |
-| mDNS discovery (classroom.local) | ✅ done |
-| Auto webapp URL (LAN IP detection) | ✅ done |
-| Agent instant reconnect on network change | ✅ done |
+Все компоненты реализованы: backend, WebSocket, API, auth (JWT + one-time link), Windows Agent (C# .NET 8), auto-update, GUI installer, Linux installer, CI/CD, webapp (Admin page, PCGrid, мультиселект), Telegram bot (/new_token), mDNS (classroom.local), StaticFiles раздача webapp.
 
 ## Topics
 
 - [[topics/architecture]]: Architecture — stack, deployment, key decisions
 - [[topics/protocol]]: WebSocket Protocol — Backend ↔ Agent message types and flows
 - [[topics/agent]]: Windows Agent — C# .NET 8, installer, auto-update, student protection
+- [[topics/graph]]: Code Graph — god nodes, community map (читать по запросу, не грузить автоматически)
 
-## Architecture Decisions (quick reference)
+## Архитектурные решения
 
-| Decision | Choice |
+| Решение | Выбор |
 |---|---|
 | ORM | SQLModel |
-| Program paths | Stored in DB, synced via `register_ack` |
-| Self-update | Automatic (no confirmation) |
-| Token granularity | One per PC |
-| Binary signing | Ed25519 (BouncyCastle) — planned for v1 |
-| Deployment model | Local network (no VPS required) |
-| Dev port | 8082 (8081 occupied by Apache on Fornex VPS) |
-| Service discovery | mDNS — backend announces `classroom.local` via zeroconf |
-| Webapp URL | Auto-detected from LAN IP if `WEBAPP_URL` not set in .env |
+| Пути программ | В БД, синхронизируются через `register_ack` |
+| Автообновление | Автоматическое, без подтверждения |
+| Токены | Один на ПК |
+| Подпись бинарей | Ed25519 (BouncyCastle) — планируется в v1 |
+| Service discovery | mDNS — `classroom.local` через zeroconf |
+| Webapp URL | Авто-определяется из LAN IP если `WEBAPP_URL` не задан |
 
-## Open Questions
+## Заметки
 
-See `docs/PROJECT_MAP.md` § 13 for pending decisions.
-
-## Notes
-
-- Updated 2026-04-24 after admin page, webapp static serving, installer webapp build, /new_token bot command.
-- Fornex provides only one technical domain — dev subdomain not possible; dev runs on IP:8082.
-- Abandoned VPS deployment; backend runs on teacher's local machine (local network mode).
-- Agent built on Linux via `agent/publish.sh` (cross-compile win-x64, no Windows needed).
-- `WEBAPP_URL` in .env optional — auto-detected from LAN IP if absent. `WEBAPP_PORT` default is 8082 (prod); set to 5173 in dev `.env`.
-- Agent installer defaults to `ws://classroom.local:8082/ws`; backend announces via mDNS on startup.
-- Backend serves `webapp/dist/` via StaticFiles — no nginx needed on local network. SPA fallback via catch-all route.
-- Linux installer (`deploy/scripts/install_host.py`) runs `pnpm build`, `uv sync`, writes `/etc/classroom-control/secrets` (mode 600), installs systemd service.
-- Admin page in webapp (gear icon, admin-only): add PC (creates token shown once), rename PC, delete PC + token.
+- Бэкенд на машине учителя (локальная сеть), VPS не нужен
+- Agent собирается на Linux (`agent/publish.sh`), кросс-компиляция win-x64
+- `WEBAPP_PORT`: 8082 prod (пишется в `/etc/classroom-control/secrets`), 5173 dev (в `backend/.env`)
+- Admin page (иконка шестерёнки, только admin): добавить ПК (токен показывается один раз), переименовать, удалить ПК вместе с токеном
+- PCGrid: офлайн-карточки скрыты по умолчанию, кнопка "Недоступные: N" показывает их

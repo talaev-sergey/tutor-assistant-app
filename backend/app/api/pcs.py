@@ -27,6 +27,10 @@ class RenameRequest(BaseModel):
     name: str
 
 
+class AssignGroupRequest(BaseModel):
+    group_id: int | None
+
+
 @router.get("", response_model=list[PCResponse])
 async def list_pcs(
     group_id: int | None = None,
@@ -54,6 +58,24 @@ async def rename_pc(
         session.add(pc)
         session.commit()
         return {"id": pc.id, "name": pc.name}
+
+
+@router.post("/{pc_id}/assign", response_model=dict)
+async def assign_group(
+    pc_id: int,
+    body: AssignGroupRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    with get_session() as session:
+        pc = session.get(PC, pc_id)
+        if not pc:
+            raise HTTPException(status_code=404, detail="PC not found")
+        pc.group_id = body.group_id
+        session.add(pc)
+        session.commit()
+        return {"id": pc.id, "group_id": pc.group_id}
 
 
 @router.delete("/{pc_id}", status_code=204)

@@ -10,18 +10,19 @@ import { useTelegram } from './hooks/useTelegram';
 import { usePCs } from './hooks/usePCs';
 import { usePrograms } from './hooks/usePrograms';
 import { useAuth } from './hooks/useAuth';
+import { useGroups } from './hooks/useGroups';
 import { apiFetch } from './api/client';
-import type { PC, Program, CommandRequest } from './api/types';
+import type { PC, Program, CommandRequest, Target } from './api/types';
 
 const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME ?? '';
 
 type Page = 'list' | 'actions' | 'programs' | 'admin';
-type Target = number | number[] | 'all';
 
 function buildCommandRequest(action: string, target: Target, onlinePCIds: number[]): CommandRequest {
   const targetBase = (() => {
     if (target === 'all') return { target_type: 'all' as const };
     if (Array.isArray(target)) return { target_type: 'multi' as const, target_pc_ids: target };
+    if (typeof target === 'object') return { target_type: 'group' as const, target_group_id: target.group_id };
     return { target_type: 'single' as const, target_pc_id: target };
   })();
 
@@ -37,12 +38,13 @@ function buildCommandRequest(action: string, target: Target, onlinePCIds: number
   return { ...targetBase, command_type: actionMap[action] ?? action };
 }
 
-function getTargetName(target: Target, onlinePCIds: number[], pcs: PC[]): string {
+function getTargetName(target: Target, onlinePCIds: number[], pcs: PC[], groupName?: string): string {
   if (target === 'all') return `все онлайн (${onlinePCIds.length})`;
   if (Array.isArray(target)) {
     const names = target.map(id => pcs.find(p => p.id === id)?.name ?? `#${id}`);
     return names.join(', ');
   }
+  if (typeof target === 'object') return groupName ?? 'группа';
   return pcs.find(p => p.id === target)?.name ?? `#${target}`;
 }
 
@@ -51,15 +53,16 @@ export default function App() {
   const { toast, showToast } = useToast();
   const { user, loading: authLoading, error: authError, loginWithToken, restoreSession } = useAuth();
   const tokenConsumedRef = useRef(false);
-  const { pcs, loading: pcsLoading, error: pcsError, refresh } = usePCs(user ? 5000 : 0);
+  const { pcs, loading: pcsLoading, error: pcsError, refresh: refreshPCs } = usePCs(user ? 5000 : 0);
   const { programs } = usePrograms(!!user);
+  const { groups, refresh: refreshGroups } = useGroups(!!user);
 
   const [page, setPage] = useState<Page>('list');
   const [target, setTarget] = useState<Target>('all');
   const [multiMode, setMultiMode] = useState(false);
   const [selectedPCs, setSelectedPCs] = useState<Set<number>>(new Set());
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
 
-  // Derived from API data
   const onlinePCIds = useMemo(() => pcs.filter(p => p.online).map(p => p.id), [pcs]);
   const protectedPCs = useMemo(() => new Set(pcs.filter(p => p.protected).map(p => p.id)), [pcs]);
   const lockedPCs = useMemo(() => new Set(pcs.filter(p => p.locked).map(p => p.id)), [pcs]);
@@ -130,10 +133,13 @@ export default function App() {
 
   function handleSelectAll() {
     hapticImpact('light');
-    if (selectedPCs.size === onlinePCIds.length) {
+    const visibleOnline = activeGroupId === null
+      ? onlinePCIds
+      : onlinePCIds.filter(id => pcs.find(p => p.id === id)?.group_id === activeGroupId);
+    if (selectedPCs.size === visibleOnline.length) {
       setSelectedPCs(new Set());
     } else {
-      setSelectedPCs(new Set(onlinePCIds));
+      setSelectedPCs(new Set(visibleOnline));
     }
   }
 
@@ -147,13 +153,22 @@ export default function App() {
     openActions(arr);
   }
 
+  function handleAllClick() {
+    if (activeGroupId !== null) {
+      openActions({ group_id: activeGroupId });
+    } else {
+      openActions('all');
+    }
+  }
+
   async function handleAction(action: string) {
     if (action === 'launch') {
       navigateTo('programs');
       return;
     }
 
-    const targetName = getTargetName(target, onlinePCIds, pcs);
+    const activeGroup = groups.find(g => g.id === activeGroupId);
+    const targetName = getTargetName(target, onlinePCIds, pcs, activeGroup?.name);
     const confirms: Record<string, string> = {
       reboot: 'Перезагрузить?',
       shutdown: 'Выключить?',
@@ -176,7 +191,7 @@ export default function App() {
       try {
         const req = buildCommandRequest(action, target, onlinePCIds);
         await apiFetch('/api/commands', { method: 'POST', body: JSON.stringify(req) });
-        setTimeout(refresh, 1500);
+        setTimeout(refreshPCs, 1500);
       } catch {
         showToast('⚠️ Ошибка отправки команды');
       }
@@ -236,7 +251,7 @@ export default function App() {
         <div style={{ fontSize: 48 }}>⚠️</div>
         <div style={{ fontSize: 16, color: '#ccc' }}>{pcsError}</div>
         <button
-          onClick={refresh}
+          onClick={refreshPCs}
           style={{ marginTop: 8, padding: '8px 20px', borderRadius: 8, border: '1px solid #444', background: 'transparent', color: '#aaa', cursor: 'pointer' }}
         >
           Повторить
@@ -250,6 +265,7 @@ export default function App() {
       {page === 'list' && (
         <ListPage
           pcs={pcs}
+          groups={groups}
           loading={pcsLoading}
           protectedPCs={protectedPCs}
           lockedPCs={lockedPCs}
@@ -257,13 +273,15 @@ export default function App() {
           multiMode={multiMode}
           selectedPCs={selectedPCs}
           isAdmin={!!user?.is_admin}
+          activeGroupId={activeGroupId}
+          onGroupSelect={setActiveGroupId}
           onPCClick={handlePCClick}
           onPCLongPress={handlePCLongPress}
           onPCSelect={handlePCSelect}
           onSelectAll={handleSelectAll}
           onCancelMulti={handleCancelMulti}
           onGoMulti={handleGoMulti}
-          onAllClick={() => openActions('all')}
+          onAllClick={handleAllClick}
           onAdminClick={() => navigateTo('admin')}
         />
       )}
@@ -292,8 +310,10 @@ export default function App() {
       {page === 'admin' && (
         <AdminPage
           pcs={pcs}
+          groups={groups}
           onBack={() => navigateTo('list')}
-          onRefreshPCs={refresh}
+          onRefreshPCs={refreshPCs}
+          onRefreshGroups={refreshGroups}
           showToast={showToast}
         />
       )}

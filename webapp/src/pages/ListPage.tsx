@@ -1,10 +1,11 @@
 import PCGrid from '../components/PCGrid';
 import MultiselectBar from '../components/MultiselectBar';
 import { Zap, Settings } from 'lucide-react';
-import type { PC } from '../api/types';
+import type { PC, Group } from '../api/types';
 
 interface ListPageProps {
   pcs: PC[];
+  groups: Group[];
   loading: boolean;
   protectedPCs: Set<number>;
   lockedPCs: Set<number>;
@@ -12,6 +13,8 @@ interface ListPageProps {
   multiMode: boolean;
   selectedPCs: Set<number>;
   isAdmin: boolean;
+  activeGroupId: number | null;
+  onGroupSelect: (groupId: number | null) => void;
   onPCClick: (pcId: number) => void;
   onPCLongPress: (pcId: number) => void;
   onPCSelect: (pcId: number) => void;
@@ -24,6 +27,7 @@ interface ListPageProps {
 
 export default function ListPage({
   pcs,
+  groups,
   loading,
   protectedPCs,
   lockedPCs,
@@ -31,6 +35,8 @@ export default function ListPage({
   multiMode,
   selectedPCs,
   isAdmin,
+  activeGroupId,
+  onGroupSelect,
   onPCClick,
   onPCLongPress,
   onPCSelect,
@@ -40,7 +46,11 @@ export default function ListPage({
   onAllClick,
   onAdminClick,
 }: ListPageProps) {
-  const onlineCount = pcs.filter(p => p.online).length;
+  const visiblePCs = activeGroupId === null
+    ? pcs
+    : pcs.filter(p => p.group_id === activeGroupId);
+
+  const onlineCount = visiblePCs.filter(p => p.online).length;
 
   return (
     <div className="page-wrapper fade-up-1">
@@ -52,10 +62,10 @@ export default function ListPage({
             style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
           />
           <div>
-          <div className="header-title">Tutor Assistant App</div>
-          <div className="header-sub">
-            <span>{pcs.length} компьютеров</span>
-          </div>
+            <div className="header-title">Tutor Assistant App</div>
+            <div className="header-sub">
+              <span>{pcs.length} компьютеров</span>
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -71,6 +81,26 @@ export default function ListPage({
         </div>
       </div>
 
+      {groups.length > 0 && (
+        <div style={styles.tabs}>
+          <button
+            style={{ ...styles.tab, ...(activeGroupId === null ? styles.tabActive : {}) }}
+            onClick={() => onGroupSelect(null)}
+          >
+            Все
+          </button>
+          {groups.map(g => (
+            <button
+              key={g.id}
+              style={{ ...styles.tab, ...(activeGroupId === g.id ? styles.tabActive : {}) }}
+              onClick={() => onGroupSelect(g.id)}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {multiMode && (
         <MultiselectBar
           selectedPCs={selectedPCs}
@@ -82,7 +112,7 @@ export default function ListPage({
       )}
 
       <PCGrid
-        pcs={pcs}
+        pcs={visiblePCs}
         loading={loading}
         protectedPCs={protectedPCs}
         lockedPCs={lockedPCs}
@@ -96,3 +126,30 @@ export default function ListPage({
     </div>
   );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  tabs: {
+    display: 'flex',
+    gap: 6,
+    overflowX: 'auto',
+    paddingBottom: 8,
+    marginBottom: 4,
+    scrollbarWidth: 'none',
+  },
+  tab: {
+    flexShrink: 0,
+    background: 'var(--bg2)',
+    border: 'none',
+    borderRadius: 20,
+    color: 'var(--hint)',
+    fontSize: 13,
+    fontWeight: 500,
+    padding: '6px 14px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  tabActive: {
+    background: 'var(--accent)',
+    color: '#fff',
+  },
+};

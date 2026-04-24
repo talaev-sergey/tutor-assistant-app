@@ -1,8 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, Search, X, MonitorPlay } from 'lucide-react';
-import type { PC, Program } from '../api/types';
-
-type Target = number | number[] | 'all';
+import type { PC, Program, Target } from '../api/types';
 
 interface ProgramsPageProps {
   target: Target;
@@ -17,6 +15,7 @@ function getSubtitle(target: Target, pcs: PC[]): string {
   if (Array.isArray(target)) {
     return target.map(id => pcs.find(p => p.id === id)?.name ?? `#${id}`).join(', ');
   }
+  if (typeof target === 'object') return 'Группа';
   return pcs.find(p => p.id === target)?.name ?? `#${target}`;
 }
 
