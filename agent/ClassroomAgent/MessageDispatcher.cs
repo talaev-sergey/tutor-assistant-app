@@ -104,7 +104,7 @@ public class MessageDispatcher(
                     return (true, null, null);
 
                 case "screenshot":
-                    var imgData = CaptureScreenInUserSession();
+                    var imgData = TakeScreenshot();
                     return (true, null, imgData);
 
                 default:
@@ -118,17 +118,29 @@ public class MessageDispatcher(
         }
     }
 
-    // ── Screenshot via user-session child process ────────────────────────────
+    // ── Screenshot ───────────────────────────────────────────────────────────
 
-    private string CaptureScreenInUserSession()
+    private string TakeScreenshot()
+    {
+        // Try to spawn in interactive user session (required when service runs in Session 0)
+        uint sessionId = WTSGetActiveConsoleSessionId();
+        if (sessionId != 0xFFFFFFFF && WTSQueryUserToken(sessionId, out IntPtr token))
+        {
+            CloseHandle(token);
+            return CaptureScreenInUserSession(sessionId);
+        }
+        // Fallback: no interactive session (VM / test env) — capture directly
+        return ScreenCapture.CaptureBase64Jpeg();
+    }
+
+    private string CaptureScreenInUserSession(uint sessionId)
     {
         const uint STARTF_USESTDHANDLES = 0x00000100;
         const uint CREATE_NO_WINDOW = 0x08000000;
         const uint HANDLE_FLAG_INHERIT = 1;
 
-        uint sessionId = WTSGetActiveConsoleSessionId();
         if (!WTSQueryUserToken(sessionId, out IntPtr userToken))
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "WTSQueryUserToken failed — no interactive session");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "WTSQueryUserToken failed");
 
         IntPtr hRead = IntPtr.Zero, hWrite = IntPtr.Zero;
         try
