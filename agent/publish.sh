@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 # Build all agent components from Linux, cross-compile for win-x64.
-# Run from the agent/ directory: ./publish.sh
+# Usage: ./publish.sh <version>   e.g. ./publish.sh 1.2.0
 set -euo pipefail
+
+VERSION=${1:-""}
+if [ -z "$VERSION" ]; then
+    echo "Usage: ./publish.sh <version>  (e.g. ./publish.sh 1.2.0)"
+    exit 1
+fi
 
 RELEASE_DIR="release"
 RUNTIME="win-x64"
-FLAGS="--configuration Release --runtime $RUNTIME --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output $RELEASE_DIR --nologo -v quiet"
+VER_FLAGS="-p:Version=$VERSION -p:AssemblyVersion=$VERSION.0 -p:FileVersion=$VERSION.0"
+FLAGS="--configuration Release --runtime $RUNTIME --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output $RELEASE_DIR --nologo -v quiet $VER_FLAGS"
 
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"

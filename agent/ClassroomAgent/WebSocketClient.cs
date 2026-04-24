@@ -15,8 +15,9 @@ public class WebSocketClient(
 {
     private const int HeartbeatIntervalSec = 15;
     private const int MaxDelaySeconds = 60;
-    private const string AgentVersion = "1.0.0";
     private const int ProtocolVersion = 1;
+    private static readonly string AgentVersion =
+        typeof(WebSocketClient).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
     private int? _pcId;
     private readonly List<AllowedProgram> _allowedPrograms = [];
