@@ -47,7 +47,7 @@ public class SetupForm : Form
         var panel = new Panel { Location = new Point(0, 70), Width = 500, Height = 220 };
 
         _txtPcName = MakeField(panel, "Имя компьютера:", Environment.MachineName, 20);
-        _txtBackendUrl = MakeField(panel, "Адрес сервера:", "ws://classroom.local:8082/ws", 80);
+        _txtBackendUrl = MakeField(panel, "Адрес сервера:", "ws://classroomctl.local:8082/ws", 80);
 
         // Token row with show/hide
         var lblToken = new Label { Text = "Токен:", Location = new Point(20, 140), AutoSize = true };
@@ -155,15 +155,12 @@ public class SetupForm : Form
 
     private void RunInstallation()
     {
-        EnsureBonjour();
-        SetProgress(15);
-
         SetStatus("Создание директории...", Color.Gray);
         Directory.CreateDirectory(InstallDir);
         Directory.CreateDirectory(Path.Combine(InstallDir, "logs"));
         Directory.CreateDirectory(Path.Combine(InstallDir, "backup"));
         Directory.CreateDirectory(Path.Combine(InstallDir, "pending"));
-        SetProgress(30);
+        SetProgress(20);
 
         SetStatus("Копирование файлов...", Color.Gray);
         var sourceDir = AppContext.BaseDirectory;
@@ -173,81 +170,42 @@ public class SetupForm : Form
             if (File.Exists(src))
                 File.Copy(src, Path.Combine(InstallDir, file), overwrite: true);
         }
-        SetProgress(55);
+        SetProgress(45);
 
         SetStatus("Сохранение конфигурации...", Color.Gray);
         WriteConfig();
-        SetProgress(70);
+        SetProgress(60);
+
+        SetStatus("Настройка брандмауэра (mDNS)...", Color.Gray);
+        AllowMdnsFirewall();
+        SetProgress(75);
 
         SetStatus("Установка службы Windows...", Color.Gray);
         InstallService();
-        SetProgress(88);
+        SetProgress(90);
 
         SetStatus("Запуск службы...", Color.Gray);
         StartService();
         SetProgress(100);
     }
 
-    private void EnsureBonjour()
+    // Allow UDP 5353 inbound so Windows native mDNS can receive classroomctl.local announcements
+    private static void AllowMdnsFirewall()
     {
-        if (IsBonjourInstalled())
-        {
-            SetStatus("Bonjour: уже установлен...", Color.Gray);
-            return;
-        }
-
-        // Look for bundled installer next to ClassroomSetup.exe
-        var bundled = Path.Combine(AppContext.BaseDirectory, "BonjourSetup.exe");
-        if (File.Exists(bundled))
-        {
-            SetStatus("Установка Bonjour (mDNS)...", Color.Gray);
-            RunSilent(bundled, "/quiet /norestart");
-            return;
-        }
-
-        // Download from Apple CDN
-        SetStatus("Загрузка Bonjour (mDNS)...", Color.Gray);
-        var tmp = Path.Combine(Path.GetTempPath(), "BonjourSetup.exe");
-        try
-        {
-            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(40) };
-            var bytes = http.GetByteArrayAsync(
-                "https://support.apple.com/downloads/DL999/en_US/BonjourSetup.exe").Result;
-            File.WriteAllBytes(tmp, bytes);
-
-            SetStatus("Установка Bonjour (mDNS)...", Color.Gray);
-            RunSilent(tmp, "/quiet /norestart");
-        }
-        catch
-        {
-            SetStatus("⚠ Bonjour не установлен — classroom.local может не работать", Color.DarkOrange);
-            Thread.Sleep(2500);
-        }
-        finally
-        {
-            try { File.Delete(tmp); } catch { }
-        }
+        const string ruleName = "Classroom mDNS";
+        // Delete old rule if exists (idempotent)
+        RunSc2("netsh", $"advfirewall firewall delete rule name=\"{ruleName}\"");
+        RunSc2("netsh", $"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow protocol=UDP localport=5353 profile=any");
     }
 
-    private static bool IsBonjourInstalled()
+    private static void RunSc2(string exe, string args)
     {
-        try
+        using var p = Process.Start(new ProcessStartInfo(exe, args)
         {
-            using var svc = new ServiceController("mDNSResponder");
-            _ = svc.Status;
-            return true;
-        }
-        catch { return false; }
-    }
-
-    private static void RunSilent(string path, string args)
-    {
-        using var p = Process.Start(new ProcessStartInfo(path, args)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
+            CreateNoWindow = true, UseShellExecute = false,
+            RedirectStandardOutput = true, RedirectStandardError = true,
         })!;
-        p.WaitForExit(60_000);
+        p.WaitForExit(5000);
     }
 
     private void WriteConfig()

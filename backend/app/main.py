@@ -41,11 +41,11 @@ async def _start_mdns() -> tuple[AsyncZeroconf, ServiceInfo] | None:
             "Classroom Control._classroom._tcp.local.",
             addresses=[socket.inet_aton(local_ip)],
             port=8082,
-            server="classroom.local.",
+            server="classroomctl.local.",
         )
         azc = AsyncZeroconf()
         await azc.async_register_service(info)
-        logger.info("mDNS: classroom.local → %s", local_ip)
+        logger.info("mDNS: classroomctl.local → %s", local_ip)
         return azc, info
     except Exception as e:
         logger.warning("mDNS failed to start: %s", e)
