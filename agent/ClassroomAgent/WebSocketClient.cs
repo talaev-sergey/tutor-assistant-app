@@ -178,7 +178,7 @@ public class WebSocketClient(
                 {
                     try
                     {
-                        var response = await dispatcher.HandleAsync(json, _allowedPrograms, ct);
+                        var response = await dispatcher.HandleAsync(json, _pcId, _allowedPrograms, ct);
                         if (response != null)
                             await SendJsonAsync(ws, response, ct);
                     }
@@ -215,7 +215,7 @@ public class WebSocketClient(
                 if (pending != null)
                     foreach (var cmd in pending)
                     {
-                        var response = await dispatcher.HandleAsync(cmd!.ToJsonString(), _allowedPrograms, ct);
+                        var response = await dispatcher.HandleAsync(cmd!.ToJsonString(), _pcId, _allowedPrograms, ct);
                         if (response != null)
                             await SendJsonAsync(ws, response, ct);
                     }

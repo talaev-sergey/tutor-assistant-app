@@ -1,6 +1,6 @@
-using System.Drawing;
-using System.Drawing.Imaging;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using ClassroomAgent.Commands;
 using ClassroomAgent.Protection;
@@ -19,6 +19,7 @@ public class MessageDispatcher(
 
     public async Task<JsonNode?> HandleAsync(
         string json,
+        int? pcId,
         List<AllowedProgram> programs,
         CancellationToken ct)
     {
@@ -41,7 +42,7 @@ public class MessageDispatcher(
 
         var (success, error, data) = await ExecuteAsync(commandType, @params, programs, ct);
 
-        var result = BuildResult(commandId, traceId, success, error, data);
+        var result = BuildResult(commandId, traceId, pcId, success, error, data);
         cache.Store(commandId, result.ToJsonString());
 
         logger.LogInformation(
@@ -50,9 +51,6 @@ public class MessageDispatcher(
 
         return result;
     }
-
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(int nIndex);
 
     private async Task<(bool success, string? error, string? data)> ExecuteAsync(
         string commandType,
@@ -106,7 +104,7 @@ public class MessageDispatcher(
                     return (true, null, null);
 
                 case "screenshot":
-                    var imgData = CaptureScreen();
+                    var imgData = CaptureScreenInUserSession();
                     return (true, null, imgData);
 
                 default:
@@ -120,34 +118,135 @@ public class MessageDispatcher(
         }
     }
 
-    private string CaptureScreen()
+    // ── Screenshot via user-session child process ────────────────────────────
+
+    private string CaptureScreenInUserSession()
     {
-        var w = GetSystemMetrics(0);
-        var h = GetSystemMetrics(1);
-        using var bmp = new Bitmap(w, h);
-        using var gfx = Graphics.FromImage(bmp);
-        gfx.CopyFromScreen(0, 0, 0, 0, new Size(w, h));
+        const uint STARTF_USESTDHANDLES = 0x00000100;
+        const uint CREATE_NO_WINDOW = 0x08000000;
+        const uint HANDLE_FLAG_INHERIT = 1;
 
-        // Scale down to max 1280px wide to keep payload small
-        Bitmap final = bmp;
-        if (w > 1280)
+        uint sessionId = WTSGetActiveConsoleSessionId();
+        if (!WTSQueryUserToken(sessionId, out IntPtr userToken))
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "WTSQueryUserToken failed — no interactive session");
+
+        IntPtr hRead = IntPtr.Zero, hWrite = IntPtr.Zero;
+        try
         {
-            int newH = (int)(h * 1280.0 / w);
-            final = new Bitmap(bmp, new Size(1280, newH));
+            var sa = new SECURITY_ATTRIBUTES
+            {
+                nLength = (uint)Marshal.SizeOf<SECURITY_ATTRIBUTES>(),
+                bInheritHandle = true,
+            };
+            if (!CreatePipe(out hRead, out hWrite, ref sa, 0))
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "CreatePipe failed");
+
+            SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
+
+            var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName;
+            var si = new STARTUPINFO
+            {
+                cb = Marshal.SizeOf<STARTUPINFO>(),
+                dwFlags = STARTF_USESTDHANDLES,
+                hStdInput = IntPtr.Zero,
+                hStdOutput = hWrite,
+                hStdError = IntPtr.Zero,
+            };
+
+            if (!CreateProcessAsUser(userToken, null, $"\"{exePath}\" --screenshot",
+                    IntPtr.Zero, IntPtr.Zero, true, CREATE_NO_WINDOW,
+                    IntPtr.Zero, null, ref si, out var pi))
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "CreateProcessAsUser failed");
+
+            CloseHandle(hWrite);
+            hWrite = IntPtr.Zero;
+            CloseHandle(pi.hThread);
+
+            var output = new StringBuilder();
+            var buf = new byte[8192];
+            while (true)
+            {
+                if (!ReadFile(hRead, buf, (uint)buf.Length, out uint bytesRead, IntPtr.Zero) || bytesRead == 0)
+                    break;
+                output.Append(Encoding.ASCII.GetString(buf, 0, (int)bytesRead));
+            }
+
+            WaitForSingleObject(pi.hProcess, 15_000);
+            CloseHandle(pi.hProcess);
+
+            return output.ToString().Trim();
         }
-
-        using var ms = new System.IO.MemoryStream();
-        var jpegEncoder = ImageCodecInfo.GetImageEncoders()
-            .First(e => e.FormatID == ImageFormat.Jpeg.Guid);
-        using var encoderParams = new EncoderParameters(1);
-        encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, 75L);
-        final.Save(ms, jpegEncoder, encoderParams);
-
-        if (!ReferenceEquals(final, bmp)) final.Dispose();
-        return Convert.ToBase64String(ms.ToArray());
+        finally
+        {
+            CloseHandle(userToken);
+            if (hRead != IntPtr.Zero) CloseHandle(hRead);
+            if (hWrite != IntPtr.Zero) CloseHandle(hWrite);
+        }
     }
 
-    private static JsonNode BuildResult(string commandId, string traceId, bool success, string? error, string? data = null)
+    // ── P/Invoke ─────────────────────────────────────────────────────────────
+
+    [DllImport("kernel32.dll")]
+    private static extern uint WTSGetActiveConsoleSessionId();
+
+    [DllImport("Wtsapi32.dll", SetLastError = true)]
+    private static extern bool WTSQueryUserToken(uint SessionId, out IntPtr phToken);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool CreateProcessAsUser(
+        IntPtr hToken, string? lpApplicationName, string lpCommandLine,
+        IntPtr lpProcessAttributes, IntPtr lpThreadAttributes,
+        bool bInheritHandles, uint dwCreationFlags,
+        IntPtr lpEnvironment, string? lpCurrentDirectory,
+        ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe,
+        ref SECURITY_ATTRIBUTES lpPipeAttributes, uint nSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetHandleInformation(IntPtr hObject, uint dwMask, uint dwFlags);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ReadFile(IntPtr hFile, byte[] lpBuffer, uint nNumberOfBytesToRead,
+        out uint lpNumberOfBytesRead, IntPtr lpOverlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct STARTUPINFO
+    {
+        public int cb;
+        public IntPtr lpReserved, lpDesktop, lpTitle;
+        public uint dwX, dwY, dwXSize, dwYSize;
+        public uint dwXCountChars, dwYCountChars, dwFillAttribute, dwFlags;
+        public ushort wShowWindow, cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput, hStdOutput, hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_INFORMATION
+    {
+        public IntPtr hProcess, hThread;
+        public uint dwProcessId, dwThreadId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SECURITY_ATTRIBUTES
+    {
+        public uint nLength;
+        public IntPtr lpSecurityDescriptor;
+        public bool bInheritHandle;
+    }
+
+    // ── Result builder ───────────────────────────────────────────────────────
+
+    private static JsonNode BuildResult(string commandId, string traceId, int? pcId, bool success, string? error, string? data = null)
     {
         var obj = new JsonObject
         {
@@ -156,6 +255,7 @@ public class MessageDispatcher(
             ["message_id"] = Guid.NewGuid().ToString(),
             ["command_id"] = commandId,
             ["trace_id"] = traceId,
+            ["pc_id"] = pcId,
             ["success"] = success,
             ["error"] = error,
             ["executed_at"] = DateTime.UtcNow.ToString("O"),

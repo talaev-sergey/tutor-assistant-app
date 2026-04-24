@@ -3,6 +3,14 @@ using ClassroomAgent.Security;
 using Serilog;
 using Serilog.Events;
 
+// When spawned in user session by MessageDispatcher to capture the screen
+if (args.Contains("--screenshot"))
+{
+    Console.OutputEncoding = System.Text.Encoding.ASCII;
+    Console.Write(ScreenCapture.CaptureBase64Jpeg());
+    return;
+}
+
 var logDir = Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
     "ClassroomAgent", "logs");
