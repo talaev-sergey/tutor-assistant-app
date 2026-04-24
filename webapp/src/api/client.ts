@@ -13,10 +13,11 @@ function getAuthHeader(): string {
 }
 
 export async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const isFormData = opts.body instanceof FormData;
   const res = await fetch(path, {
     ...opts,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       Authorization: getAuthHeader(),
       ...(opts.headers as Record<string, string> | undefined),
     },

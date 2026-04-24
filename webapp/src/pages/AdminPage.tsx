@@ -1,8 +1,19 @@
-import { useState } from 'react';
-import { Trash2, Plus, Copy, Check, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Trash2, Plus, Copy, Check, ArrowLeft, Upload } from 'lucide-react';
 import { apiFetch } from '../api/client';
 import type { PC, Group } from '../api/types';
 import { useTelegram } from '../hooks/useTelegram';
+
+interface Release {
+  id: number;
+  version: string;
+  channel: string;
+  sha256: string;
+  file_size: number | null;
+  released_at: string;
+  is_active: boolean;
+  download_url: string;
+}
 
 interface AdminPageProps {
   pcs: PC[];
@@ -40,6 +51,54 @@ export default function AdminPage({ pcs, groups, onBack, onRefreshPCs, onRefresh
   const [newGroupName, setNewGroupName] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [showGroupForm, setShowGroupForm] = useState(false);
+
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [releaseVersion, setReleaseVersion] = useState('');
+  const [uploadingRelease, setUploadingRelease] = useState(false);
+  const [showReleaseForm, setShowReleaseForm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    apiFetch<Release[]>('/api/releases').then(setReleases).catch(() => {});
+  }, []);
+
+  async function handleUploadRelease() {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file || !releaseVersion.trim()) return;
+    setUploadingRelease(true);
+    try {
+      const form = new FormData();
+      form.append('version', releaseVersion.trim());
+      form.append('channel', 'stable');
+      form.append('file', file);
+      const res = await apiFetch<Release>('/api/releases', {
+        method: 'POST',
+        body: form,
+      });
+      setReleases(prev => [res, ...prev]);
+      setReleaseVersion('');
+      setShowReleaseForm(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      showToast(`✅ Релиз v${res.version} загружен`);
+    } catch {
+      showToast('⚠️ Ошибка загрузки релиза');
+    } finally {
+      setUploadingRelease(false);
+    }
+  }
+
+  async function handleDeactivateRelease(r: Release) {
+    showConfirm(`Деактивировать v${r.version}?`, async (ok) => {
+      if (!ok) return;
+      try {
+        await apiFetch(`/api/releases/${r.id}`, { method: 'DELETE' });
+        setReleases(prev => prev.map(x => x.id === r.id ? { ...x, is_active: false } : x));
+        showToast(`v${r.version} деактивирован`);
+      } catch {
+        showToast('⚠️ Ошибка');
+      }
+    });
+  }
 
   async function handleDeletePC(pc: PC) {
     showConfirm(`Удалить ${pc.name}?\nАгент потеряет доступ.`, async (ok) => {
@@ -260,6 +319,74 @@ export default function AdminPage({ pcs, groups, onBack, onRefreshPCs, onRefresh
           </button>
         </div>
       )}
+
+      {/* Releases section */}
+      <div style={{ ...styles.sectionTitle, marginTop: 24 }}>
+        Агент
+        <button style={styles.addBtn} onClick={() => setShowReleaseForm(v => !v)}>
+          <Upload size={14} />
+          <span>Загрузить</span>
+        </button>
+      </div>
+
+      {showReleaseForm && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          <input
+            style={styles.createInput}
+            placeholder="Версия, напр. 1.1.0"
+            value={releaseVersion}
+            onChange={e => setReleaseVersion(e.target.value)}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".exe"
+            style={{ color: 'var(--hint)', fontSize: 13 }}
+          />
+          <button
+            style={{ ...styles.createBtn, opacity: uploadingRelease || !releaseVersion.trim() ? 0.5 : 1 }}
+            disabled={uploadingRelease || !releaseVersion.trim()}
+            onClick={handleUploadRelease}
+          >
+            {uploadingRelease ? 'Загрузка…' : 'Загрузить релиз'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ ...styles.list, marginBottom: 24 }}>
+        {releases.length === 0 && !showReleaseForm && (
+          <div style={styles.empty}>Нет релизов. Загрузи ClassroomAgent.exe из release/</div>
+        )}
+        {releases.map(r => (
+          <div key={r.id} style={styles.card}>
+            <div style={styles.cardMain}>
+              <div style={styles.cardLeft}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ ...styles.dot, background: r.is_active ? 'var(--online)' : 'var(--hint)' }} />
+                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                    v{r.version}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--hint)', background: 'var(--bg3)', borderRadius: 6, padding: '1px 6px' }}>
+                    {r.channel}
+                  </span>
+                  {r.is_active && (
+                    <span style={{ fontSize: 11, color: 'var(--online)' }}>активен</span>
+                  )}
+                </div>
+                <div style={styles.pcMeta}>
+                  {r.file_size ? `${(r.file_size / 1024 / 1024).toFixed(1)} МБ · ` : ''}
+                  {formatDate(r.released_at)} · SHA256: {r.sha256.slice(0, 12)}…
+                </div>
+              </div>
+              {r.is_active && (
+                <button style={styles.deleteBtn} onClick={() => handleDeactivateRelease(r)}>
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div style={styles.list}>
         {pcs.length === 0 && !showCreateForm && (

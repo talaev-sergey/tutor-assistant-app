@@ -20,7 +20,7 @@ from .middleware.rate_limit import limiter
 
 WEBAPP_DIST = Path(__file__).resolve().parent.parent.parent / "webapp" / "dist"
 from .database import engine, create_db_and_tables
-from .api import health, pcs, commands, tokens, programs, groups, auth
+from .api import health, pcs, commands, tokens, programs, groups, auth, releases
 from .ws.handlers import handle_websocket
 from .ws.manager import manager
 from .bot.handlers import build_bot_app
@@ -116,6 +116,7 @@ app.include_router(commands.router, prefix="/api/commands", tags=["Commands"])
 app.include_router(tokens.router, prefix="/api/tokens", tags=["Tokens"])
 app.include_router(programs.router, prefix="/api/programs", tags=["Programs"])
 app.include_router(groups.router, prefix="/api/groups", tags=["Groups"])
+app.include_router(releases.router, prefix="/api/releases", tags=["Releases"])
 
 
 @app.websocket("/ws")
